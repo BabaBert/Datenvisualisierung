@@ -24,6 +24,7 @@ features = [
     'EventTarget',
     'HtmlCanvasElement',
     'MouseEvent',
+    'WheelEvent',
     'WebGlBuffer',
     'WebGlProgram',
     'WebGlRenderingContext',

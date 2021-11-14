@@ -38,7 +38,9 @@ impl Client{
         }
     }
 
-    pub fn update(&mut self, _time: f32, _height: f32) -> Result<(), JsValue>{
+    pub fn update(&mut self, time: f32, height: f32, width: f32) -> Result<(), JsValue>{
+        app_state::update_dynamic_data(time, height, width);
+        //log(&format!("{}", WheelEvent.delta_mode()));
         Ok(())
     }
 
@@ -54,6 +56,7 @@ impl Client{
             curr_state.canvas_width,
             curr_state.rotation_x_axis,
             curr_state.rotation_y_axis,
+            curr_state.mouse_scroll,
             //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
         );
     }

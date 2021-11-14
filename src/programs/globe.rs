@@ -1,4 +1,4 @@
-use super::super::{common_funcs as cf, common_funcs::{matrixes::*, normals::*}};
+use super::super::{common_funcs::cf, common_funcs::{matrixes::*, normals::*}};
 use js_sys::WebAssembly;
 use wasm_bindgen::JsCast;
 use web_sys::{
@@ -20,7 +20,7 @@ pub struct Globe {
 
 impl Globe {
     pub fn new(gl: &WebGlRenderingContext) -> Self {
-        use Geomertry_Generator::*;
+        use geomertry_generator::*;
 
         let program = cf::link_program(
             &gl,
@@ -28,7 +28,8 @@ impl Globe {
             &super::super::shaders::fragment::varying_color_from_vertex::SHADER,
         ).unwrap();
 
-        let positions_and_indices = gen_mesh(1., 5);// cf::get_position_grid_n_by_n(super::super::constants::GRID_SIZE);
+        //generate vertices for Ico sphere
+        let positions_and_indices = gen_mesh(1., 0);
         let memory_buffer = wasm_bindgen::memory()
             .dyn_into::<WebAssembly::Memory>()
             .unwrap()
@@ -81,10 +82,14 @@ impl Globe {
         canvas_width: f32,
         rotation_angle_x_axis: f32,
         rotation_angle_y_axis: f32,
+        zoom: f32,
     ) {
         gl.use_program(Some(&self.program));
 
-        let projection_matrix = get_3d_matrices(
+
+        //transformation(rotation) @common_funcs
+        let projection_matrix = 
+        get_3d_matrices(
             bottom,
             top,
             left,
@@ -93,6 +98,7 @@ impl Globe {
             canvas_width,
             rotation_angle_x_axis,
             rotation_angle_y_axis,
+            zoom,
         );
 
         gl.uniform_matrix4fv_with_f32_array(
@@ -148,12 +154,9 @@ impl Globe {
     }
 }
 
-pub mod Geomertry_Generator{
+pub mod geomertry_generator{
     // mostly coppied from https://github.com/Gonkee/Gepe3D/blob/main/Gepe3D/src/Physics/GeometryGenerator.cs
-    use web_sys::{
-        WebGlRenderingContext as GL,
-        *
-    };
+
     use std::collections::HashMap;
     use nalgebra::Vector3;
     
@@ -167,13 +170,13 @@ pub mod Geomertry_Generator{
     impl Default for IcoSphere{
         // initialized to the starting icosahedron
         fn default() -> Self {
-            let PHI:f32 = (1. + f32::sqrt(5.)) / 2.;
+            use super::super::super::constants::PHI;
 
             Self{
                 vertices: vec![
                     Vector3::new(-1., PHI, 0.), Vector3::new(  1., PHI, 0.), Vector3::new( -1.,-PHI, 0.),
                     Vector3::new( 1.,-PHI, 0.), Vector3::new(  0.,-1., PHI), Vector3::new(  0., 1., PHI),
-                    Vector3::new( 0.,-1.,-PHI), Vector3::new(  0., 1.,-PHI), Vector3::new(  0., 0., -1.),
+                    Vector3::new( 0.,-1.,-PHI), Vector3::new(  0., 1.,-PHI), Vector3::new( PHI, 0., -1.),
                     Vector3::new(PHI, 0.,  1.), Vector3::new(-PHI, 0., -1.), Vector3::new(-PHI, 0.,  1.)
                 ],
                 indices: vec![
