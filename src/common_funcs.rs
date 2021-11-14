@@ -306,3 +306,15 @@ pub mod normals{
         )
     }
 }
+
+pub mod textures{
+    use web_sys::{WebGlTexture, WebGlRenderingContext as GL};
+
+    // fn create_texture(texture){
+
+    // }
+    
+    // fn flip_book_texture(gl: &GL, timestamp: u16, x: u8, y: u8) -> Self{
+    //     const texture = gl.createTexture();
+    // }
+}

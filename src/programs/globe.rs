@@ -16,6 +16,7 @@ pub struct Globe {
     pub u_opacity: WebGlUniformLocation,
     pub u_projection: WebGlUniformLocation,
     //pub y_buffer: WebGlBuffer,
+    //pub texture: WebGlTexture,
 }
 
 impl Globe {
@@ -54,7 +55,8 @@ impl Globe {
         );
         let buffer_indices = gl.create_buffer().unwrap();
         gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&buffer_indices));
-        gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &indices_array, GL::STATIC_DRAW);
+        gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &indices_array, GL::STATIC_DRAW);       
+
 
         Self {
             //u_normals_rotation: gl.get_uniform_location(&program, "uNormalsRotation").unwrap(),
@@ -151,6 +153,28 @@ impl Globe {
         // gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&self.indices_buffer));
 
         gl.draw_elements_with_i32(GL::TRIANGLES, self.index_count, GL::UNSIGNED_SHORT, 0);
+    }
+
+    #[inline]
+    fn setup_texture(gl: &GL){
+        let texture = gl.create_texture().unwrap();
+        gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+
+        const LEVEL: u8 = 0;
+        const INTERNAL_FORMAT: u32 = GL::RGBA;
+        const WIDTH: u8 = 1;
+        const HEIGHT: u8 = 1;
+        const BORDER: u8 = 0;
+        const SRC_FORMAT: u32 = GL::RGBA;
+        const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
+        //Pixel to be used while loading
+        const PIXEL: [u8; 4] = [0, 0, 255, 255];
+
+        //gl.tex_image_2d_with_u32_and_u32_and_canvas(); 
+    }
+
+    fn load_video(){
+
     }
 }
 
