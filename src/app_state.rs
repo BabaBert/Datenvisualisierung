@@ -48,6 +48,7 @@ pub struct AppState {
     pub rotation_x_axis: f32,
     pub rotation_y_axis: f32,
     pub time: f32,
+    pub pause: bool,
 }
 
 impl AppState {
@@ -66,6 +67,7 @@ impl AppState {
             rotation_x_axis: 0.,        //angle
             rotation_y_axis: 0.,
             time: 0.,
+            pause: true
         }
     }
 }
@@ -124,4 +126,16 @@ pub fn update_mouse_scroll(mouse_scroll: f64){
         }
         _ => {*data = Arc::new(AppState{..*data.clone()})}
     }
+}
+
+pub fn update_video_pause(pause: bool){
+    let mut data = APP_STATE.lock().unwrap();
+    *data = Arc::new(AppState{
+        pause: pause,
+        ..*data.clone()
+    })
+}
+
+pub fn reset_video(){
+    
 }

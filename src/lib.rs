@@ -5,10 +5,9 @@ use web_sys::{
     WebGlRenderingContext as GL
 };
 
-#[macro_use]
-extern crate lazy_static;
+#[macro_use] extern crate lazy_static;
 
-mod common_funcs;
+
 mod gl_setup;
 mod programs;
 mod shaders;
@@ -21,6 +20,33 @@ extern "C"{
     fn log(s: &str);
 }
 
+
+#[wasm_bindgen]
+pub struct CustomEvents{
+    e_video_pause: CustomEvent,
+    e_video_reset: Event,
+}
+
+#[wasm_bindgen]
+impl CustomEvents{
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self{
+        //TODO: detail for pause
+        Self{
+            e_video_pause: CustomEvent::new("video_pause").unwrap(),
+            e_video_reset: Event::new("video_reset").unwrap(),
+        }
+    }
+    pub fn get_pause(self) -> CustomEvent{
+        self.e_video_pause
+    }
+    pub fn get_reset(self) -> Event{
+        self.e_video_reset
+    }
+}
+
+
+//all the data that is stored on the user client, i.e. the browser
 #[wasm_bindgen]
 pub struct Client {
     gl: GL,
@@ -33,18 +59,19 @@ impl Client{
     pub fn new() -> Self {
         Self{
             program_globe: programs::Globe::new(&gl),
-            //program_color_2d: programs::Color2D::new(&gl),
             gl: gl,
         }
     }
 
     pub fn update(&mut self, time: f32, height: f32, width: f32) -> Result<(), JsValue>{
         app_state::update_dynamic_data(time, height, width);
-        //log(&format!("{}", WheelEvent.delta_mode()));
         Ok(())
     }
 
     pub fn render(&self){
+        self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
+
+        let curr_state = app_state::get_curr_state();
 
         self.program_globe.render(
             &self.gl,
@@ -61,3 +88,5 @@ impl Client{
         );
     }
 }
+
+
