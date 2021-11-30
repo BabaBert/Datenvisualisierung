@@ -69,7 +69,7 @@ impl Client{
     }
 
     pub fn render(&self){
-        self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
+        self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT); 
 
         let curr_state = app_state::get_curr_state();
 

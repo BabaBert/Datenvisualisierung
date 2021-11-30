@@ -36,38 +36,41 @@ impl Globe {
         use vec_to_array::VecToArray;
         use js_sys::*;
 
+        const EARTH: &str = "../../data/earth.jpg";
+        const TEST: &str = "../../data/test.png";
+
         let program = cf::link_program(
             &gl,
             &super::super::shaders::vertex::globe::SHADER,
             &super::super::shaders::fragment::globe::SHADER,
         ).unwrap();
 
-        let globe = IcoSphere::new(1., 1);
+
+        let globe = IcoSphere::new(1., 5);
 
         //generate arrays for Ico sphere
         let positions_and_indices = globe.gen_mesh();
         let uv_map = globe.gen_uv_map();
-        let texture = create_texture(gl);
-
+        let texture = create_texture(gl, TEST);
 
         //Vertices Buffer
-        let vertices_array: Float32Array = VecToArray::vec_to_arr(positions_and_indices.0);
-        let buffer_position = gl.create_buffer().ok_or("failed to create buffer").unwrap();
-        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer_position));
+        let vertices_array: Float32Array = VecToArray::new(&positions_and_indices.0);
+        let position_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
+        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&position_buffer));
         gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &vertices_array, GL::STATIC_DRAW);
 
         //Indeces Buffer
-        let indices_array: Uint16Array = VecToArray::vec_to_arr(positions_and_indices.1);
-        let buffer_indices = gl.create_buffer().ok_or("failed to create buffer").unwrap();
-        gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&buffer_indices));
+        let indices_array: Uint16Array = VecToArray::new(&positions_and_indices.1);
+        let indices_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
+        gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&indices_buffer));
         gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &indices_array, GL::STATIC_DRAW);  
         
-
         //Texture Coordinates Buffer
-        let texture_array: Float32Array = VecToArray::vec_to_arr(uv_map);
+        let texture_array: Float32Array = VecToArray::new(&uv_map);
         let tex_coord_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&tex_coord_buffer));
         gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &texture_array, GL::STATIC_DRAW);
+
 
         Self {
             u_projection_matrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
@@ -75,9 +78,9 @@ impl Globe {
 
             program: program,
 
-            indices_buffer: buffer_indices,
+            indices_buffer: indices_buffer,
             index_count: indices_array.length() as i32,
-            position_buffer: buffer_position,
+            position_buffer: position_buffer,
             texture_coord_buffer: tex_coord_buffer,
             texture: texture,
         }
@@ -146,42 +149,43 @@ impl Globe {
 
 }
 
-
 mod vec_to_array{
     use js_sys::*;
     use wasm_bindgen::JsCast;
 
     pub trait VecToArray<T>{
-        fn vec_to_arr(vec: Vec<T>) -> Self;
+        fn new(vec: &Vec<T>) -> Self;
     }
 
     impl VecToArray<f32> for Float32Array{
-        fn vec_to_arr(vec: Vec<f32>) -> Self{
+        #[inline]
+        fn new(vec: &Vec<f32>) -> Self{
             let buffer = wasm_bindgen::memory()
                 .dyn_into::<WebAssembly::Memory>()
                 .unwrap()
                 .buffer();
-        let mem_loc = vec.as_ptr() as u32 / 4;
-        let array = js_sys::Float32Array::new(&buffer).subarray(
-            mem_loc,
-            mem_loc + vec.len() as u32,
-        );
-        array
+            let mem_loc = vec.as_ptr() as u32 / 4;
+            let array = Float32Array::new(&buffer).subarray(
+                mem_loc,
+                mem_loc + vec.len() as u32,
+            );
+            array
         }
     }
 
     impl VecToArray<u16> for Uint16Array{
-        fn vec_to_arr(vec: Vec<u16>) -> Self{
+        #[inline]
+        fn new(vec: &Vec<u16>) -> Self{
             let buffer = wasm_bindgen::memory()
-            .dyn_into::<WebAssembly::Memory>()
-            .unwrap()
-            .buffer();
-        let mem_loc = vec.as_ptr() as u32 / 2;
-        let array = js_sys::Uint16Array::new(&buffer).subarray(
-            mem_loc,
-            mem_loc + vec.len() as u32,
-        );
-        array
+                .dyn_into::<WebAssembly::Memory>()
+                .unwrap()
+                .buffer();
+            let mem_loc = vec.as_ptr() as u32 / 2;
+            let array = Uint16Array::new(&buffer).subarray(
+                mem_loc,
+                mem_loc + vec.len() as u32,
+            );
+            array
         }
     }
 }
@@ -217,7 +221,7 @@ mod texture_processing{
         }
     }
 
-    pub fn create_texture(gl: &GL) -> WebGlTexture{
+    pub fn create_texture(gl: &GL, src: &str) -> WebGlTexture{
         use wasm_bindgen::{closure::Closure, JsCast}; 
         use js_sys::*;
         
@@ -225,15 +229,15 @@ mod texture_processing{
         gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
 
         let image = HtmlImageElement::new().unwrap();
-        image.set_src("../../data/test.png");
+        image.set_src(src);
         super::super::super::log(&image.current_src());
 
+        //Event handler for when the image is loaded
         {
             let gl_c = gl.clone();
             let texture_c = texture.clone();
             let image_c = image.clone();
             let listener: Closure<dyn Fn()> = Closure::wrap(Box::new(move ||{
-                //TODO
                 image_on_load(&gl_c, &texture_c, &image_c);
                 gl_c.tex_image_2d_with_u32_and_u32_and_image(
                     GL::TEXTURE_2D,
@@ -285,7 +289,8 @@ mod geomertry_generator{
     impl Default for IcoSphere{
         // initialized to the starting icosahedron
         fn default() -> Self {
-            use super::super::super::constants::PHI;
+            const SQRT_5:   f32 = 2.23606797749978;
+            const PHI:      f32 = (1. + SQRT_5) / 2.;
 
             Self{
                 vertices: vec![
@@ -308,7 +313,7 @@ mod geomertry_generator{
     }
 
     impl IcoSphere{
-        pub fn new(radius: f32, subdivision: u8) -> Self{
+        pub fn new(radius: f32, subdivision: usize) -> Self{
             let mut base = Self::default();
             base.radius = radius;
 
@@ -363,36 +368,23 @@ mod geomertry_generator{
 
             for i in self.vertices.iter(){
                 let normalized = i - CENTRE_POINT / self.radius;
-                let u: f32 = f32::atan2(normalized.y, normalized.x) / (std::f32::consts::PI * 2.) + 0.5;
-                let v: f32 = normalized.z * 0.5 + 0.5;
+                let u: f32 = f32::atan2(normalized.z, normalized.x) / (std::f32::consts::PI * 2.) + 0.5;
+                let v: f32 = normalized.y * 0.5 + 0.5;
                 uv_vertices.append(&mut vec![u, v]);
             }
             uv_vertices
         }
 
         pub fn gen_mesh(&self) -> (Vec<f32>, Vec<u16>){
-            let mut vertices: Vec<f32> = Vec::new();//vec![0., 0., 0.];
-            let mut indices:  Vec<u16> = Vec::new();//vec![0 , 0 , 0 ]; 
-            // log(&"Vertices:");
+            let mut vertices: Vec<f32> = Vec::new();
+            let mut indices:  Vec<u16> = Vec::new();
             for i in self.vertices.iter(){
                 vertices.append(&mut vec![i.x, i.y, i.z]);
-            //     log(&format!("{}, {}, {}", i.x, i.y, i.z));
             }
-            // log(&"Indices:");
             for i in self.indices.iter(){
                 indices.append(&mut vec![i.x, i.y, i.z]);
-            //     log(&format!("{}, {}, {}", i.x, i.y, i.z));
 
             }
-
-            //Workaround since the first 3 elements get corrupted when working with references
-            // for _ in 0..3{
-            //     vertices.remove(0);
-            //     indices.remove(0);
-            // }
-
-
-            //log(&format!("{:?}, {:?}", *vertices, &indices));
             (vertices, indices)
         }
     }
