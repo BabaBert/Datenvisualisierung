@@ -7,6 +7,10 @@ use web_sys::{
 };
 use nalgebra::Vector3;
 
+const EARTH: &str = "../../data/earth.jpg";
+const TEST: &str = "../../data/test.png";
+const EARTH2: &str = "../../data/PathfinderMap_hires.jpg";
+
 //Modules
 pub struct Globe {
     pub program: WebGlProgram,                      //Program pointer
@@ -32,12 +36,11 @@ pub struct Globe {
 impl Globe {
     pub fn new(gl: &WebGlRenderingContext) -> Self {
         use geomertry_generator::*;
-        use texture_processing::*;
+        use super::common_funcs::textures::*;
         use vec_to_array::VecToArray;
         use js_sys::*;
 
-        const EARTH: &str = "../../data/earth.jpg";
-        const TEST: &str = "../../data/test.png";
+        
 
         let program = cf::link_program(
             &gl,
@@ -51,7 +54,7 @@ impl Globe {
         //generate arrays for Ico sphere
         let positions_and_indices = globe.gen_mesh();
         let uv_map = globe.gen_uv_map();
-        let texture = create_texture(gl, TEST);
+        let texture = create_texture(gl, EARTH);
 
         //Vertices Buffer
         let vertices_array: Float32Array = VecToArray::new(&positions_and_indices.0);
@@ -190,85 +193,6 @@ mod vec_to_array{
     }
 }
 
-mod texture_processing{
-    use web_sys::{
-        WebGlRenderingContext as GL,
-        *
-    };
-    use wasm_bindgen::JsValue;
-
-    #[inline]
-    pub fn image_on_load(gl: &GL, texture: &WebGlTexture, image: &HtmlImageElement){
-        const LEVEL: i32 = 0;
-        const INTERNAL_FORMAT: u32 = GL::RGBA;
-        const SRC_FORMAT: u32 = GL::RGBA;
-        const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
-
-        gl.bind_texture(GL::TEXTURE_2D, Some(texture));
-        gl.tex_image_2d_with_u32_and_u32_and_image(GL::TEXTURE_2D, LEVEL, INTERNAL_FORMAT as i32, SRC_FORMAT, SRC_TYPE, image);
-        {
-            let is_power_of_two = |x: i32| -> bool {
-                x & x-1 == 0
-            };
-
-            if is_power_of_two(image.width() as i32) && is_power_of_two(image.height() as i32){
-                gl.generate_mipmap(GL::TEXTURE_2D);
-            }
-            else{
-                gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
-                gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
-            }
-        }
-    }
-
-    pub fn create_texture(gl: &GL, src: &str) -> WebGlTexture{
-        use wasm_bindgen::{closure::Closure, JsCast}; 
-        use js_sys::*;
-        
-        let texture = gl.create_texture().unwrap();
-        gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
-
-        let image = HtmlImageElement::new().unwrap();
-        image.set_src(src);
-        super::super::super::log(&image.current_src());
-
-        //Event handler for when the image is loaded
-        {
-            let gl_c = gl.clone();
-            let texture_c = texture.clone();
-            let image_c = image.clone();
-            let listener: Closure<dyn Fn()> = Closure::wrap(Box::new(move ||{
-                image_on_load(&gl_c, &texture_c, &image_c);
-                gl_c.tex_image_2d_with_u32_and_u32_and_image(
-                    GL::TEXTURE_2D,
-                    0,                      //Level
-                    GL::RGBA as i32,        //internal format
-                    GL::RGBA,               //source format
-                    GL::UNSIGNED_BYTE,      //source type
-                    &image_c
-                ).unwrap();    
-            }));
-            image.set_onload(Some(listener.as_ref().unchecked_ref()));
-            listener.forget();
-        }
-
-        //Pixel to be used while loading
-        {
-            const WIDTH: i32 = 1;
-            const HEIGHT: i32 = 1;
-            const SRC_FORMAT: u32 =  GL::RGBA;
-            const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
-            let mut pixel: [u8; 4] = [0, 0, 255, 255];
-            gl.read_pixels_with_opt_u8_array(0, 0, WIDTH, HEIGHT, SRC_FORMAT, SRC_TYPE, Some(&mut pixel)).unwrap();
-        }
-
-        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
-        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
-
-        texture
-    }
-}
-
 mod geomertry_generator{
     // mostly coppied from https://github.com/Gonkee/Gepe3D/blob/main/Gepe3D/src/Physics/GeometryGenerator.cs
 
@@ -294,10 +218,9 @@ mod geomertry_generator{
 
             Self{
                 vertices: vec![
-                    Vector3::new(-1., PHI, 0.), Vector3::new(  1., PHI, 0.), Vector3::new( -1.,-PHI, 0.),
-                    Vector3::new( 1.,-PHI, 0.), Vector3::new(  0.,-1., PHI), Vector3::new(  0., 1., PHI),
-                    Vector3::new( 0.,-1.,-PHI), Vector3::new(  0., 1.,-PHI), Vector3::new( PHI, 0., -1.),
-                    Vector3::new(PHI, 0.,  1.), Vector3::new(-PHI, 0., -1.), Vector3::new(-PHI, 0.,  1.)
+                    Vector3::new( -1., PHI,  0.), Vector3::new(  1., PHI,  0.), Vector3::new( -1.,-PHI,  0.), Vector3::new(  1.,-PHI,  0.), 
+                    Vector3::new(  0., -1., PHI), Vector3::new(  0.,  1., PHI), Vector3::new(  0., -1.,-PHI), Vector3::new(  0.,  1.,-PHI),
+                    Vector3::new( PHI,  0., -1.), Vector3::new( PHI,  0.,  1.), Vector3::new(-PHI,  0., -1.), Vector3::new(-PHI,  0.,  1.)
                 ],
                 indices: vec![
                     Vector3::new( 0, 11,  5), Vector3::new(0,  5,  1),Vector3::new(0,  1,  7),Vector3::new( 0,  7, 10),
@@ -368,8 +291,8 @@ mod geomertry_generator{
 
             for i in self.vertices.iter(){
                 let normalized = i - CENTRE_POINT / self.radius;
-                let u: f32 = f32::atan2(normalized.z, normalized.x) / (std::f32::consts::PI * 2.) + 0.5;
-                let v: f32 = normalized.y * 0.5 + 0.5;
+                let u: f32 = f32::atan2(normalized.x, normalized.z) / (std::f32::consts::PI * 2.) + 0.5;
+                let v: f32 = (f32::asin(-normalized.y) / std::f32::consts::PI) + 0.5;//-normalized.y * 0.5 + 0.5;
                 uv_vertices.append(&mut vec![u, v]);
             }
             uv_vertices

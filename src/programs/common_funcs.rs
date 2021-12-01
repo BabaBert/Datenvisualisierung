@@ -175,7 +175,7 @@ pub mod matrixes{
         let aspect: f32 = canvas_width / canvas_height;
         let scale_x = (right - left ) / canvas_width ;
         let scale_y = (top - bottom ) / canvas_height;
-        let scale = scale_y * 0.5;//+ zoom as f32;
+        let scale = scale_y * 2.;// * 0.5;//+ zoom as f32;
     
         let translation_matrix: [f32; 16] = translation_matrix(
             -1. + scale_x + 2. * left / canvas_width,
@@ -304,5 +304,89 @@ pub mod normals{
             normal_y / normal_size,
             normal_z / normal_size,
         )
+    }
+}
+
+pub mod textures{
+    use web_sys::{
+        WebGlRenderingContext as GL,
+        *
+    };
+    use wasm_bindgen::JsValue;
+
+    #[inline]
+    pub fn image_on_load(gl: &GL, texture: &WebGlTexture, image: &HtmlImageElement){
+        const LEVEL: i32 = 0;
+        const INTERNAL_FORMAT: u32 = GL::RGBA;
+        const SRC_FORMAT: u32 = GL::RGBA;
+        const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
+
+        gl.bind_texture(GL::TEXTURE_2D, Some(texture));
+        gl.tex_image_2d_with_u32_and_u32_and_image(GL::TEXTURE_2D, LEVEL, INTERNAL_FORMAT as i32, SRC_FORMAT, SRC_TYPE, image);
+        {
+            let is_power_of_two = |x: i32| -> bool {
+                x & x-1 == 0
+            };
+
+            // if is_power_of_two(image.width() as i32) && is_power_of_two(image.height() as i32){
+            //     gl.generate_mipmap(GL::TEXTURE_2D);
+            // }
+            // else{
+            //     //gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
+            //     //gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
+            // }
+        }
+    }
+
+    pub fn create_texture(gl: &GL, src: &str) -> WebGlTexture{
+        use wasm_bindgen::{closure::Closure, JsCast}; 
+        use js_sys::*;
+        
+        let texture = gl.create_texture().unwrap();
+        gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+
+        let image = HtmlImageElement::new().unwrap();
+        image.set_src(src);
+        super::super::super::log(&image.current_src());
+
+        //Event handler for when the image is loaded
+        {
+            let gl_c = gl.clone();
+            let texture_c = texture.clone();
+            let image_c = image.clone();
+            let listener: Closure<dyn Fn()> = Closure::wrap(Box::new(move ||{
+                //image_on_load(&gl_c, &texture_c, &image_c);
+                gl_c.bind_texture(GL::TEXTURE_2D, Some(&texture_c));
+                gl_c.tex_image_2d_with_u32_and_u32_and_image(
+                    GL::TEXTURE_2D,         //target
+                    0,                      //level
+                    GL::RGBA as i32,        //internal format
+                    GL::RGBA,               //source format
+                    GL::UNSIGNED_BYTE,      //source type
+                    &image_c                //image
+                ).unwrap();    
+            }));
+            image.set_onload(Some(listener.as_ref().unchecked_ref()));
+            listener.forget();
+        }
+
+        //Pixel to be used while loading
+        {
+            const WIDTH: i32 = 1;
+            const HEIGHT: i32 = 1;
+            const SRC_FORMAT: u32 =  GL::RGBA;
+            const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
+            let mut pixel: [u8; 4] = [0, 0, 255, 255];
+            gl.read_pixels_with_opt_u8_array(0, 0, WIDTH, HEIGHT, SRC_FORMAT, SRC_TYPE, Some(&mut pixel)).unwrap();
+        }
+
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR as i32);
+
+        //gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
+
+        texture
     }
 }
