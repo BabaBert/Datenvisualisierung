@@ -63,7 +63,6 @@ pub mod cf{
     }
 }
 
-
 pub mod matrixes{
     use nalgebra::{Matrix4, Perspective3, geometry::Rotation};
     use super::super::super::constants::*;

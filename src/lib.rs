@@ -57,6 +57,11 @@ pub struct Client {
 impl Client{
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
+
+        console_error_panic_hook::set_once();
+        let gl = gl_setup::initialize_webgl_context().unwrap();
+        //programs::read_data();
+        
         Self{
             program_globe: programs::Globe::new(&gl),
             gl: gl,

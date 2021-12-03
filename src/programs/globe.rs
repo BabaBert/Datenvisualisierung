@@ -7,9 +7,9 @@ use web_sys::{
 };
 use nalgebra::Vector3;
 
-const EARTH: &str = "../../data/earth.jpg";
-const TEST: &str = "../../data/test.png";
-const EARTH2: &str = "../../data/PathfinderMap_hires.jpg";
+const EARTH:  &str = "../../data/image/earth.jpg";
+const TEST:   &str = "../../data/image/test.png";
+const EARTH2: &str = "../../data/image/PathfinderMap_hires.jpg";
 
 //Modules
 pub struct Globe {
@@ -17,20 +17,13 @@ pub struct Globe {
     pub indices_buffer: WebGlBuffer,
     pub position_buffer: WebGlBuffer,
     pub texture_coord_buffer: WebGlBuffer,
-    //pub normals_buffer: WebGlBuffer,
 
     pub index_count: i32,
 
-
-    //pub u_normals_rotation: WebGlUniformLocation,
-    //pub u_opacity: WebGlUniformLocation,
     pub u_projection_matrix: WebGlUniformLocation,
-    // pub u_model_view_natrix: WebGlUniformLocation,
     pub u_sampler: WebGlUniformLocation,
 
-    //pub y_buffer: WebGlBuffer,
     pub texture: WebGlTexture,
-    //pub video: HtmlVideoElement,
 }
 
 impl Globe {
@@ -292,7 +285,7 @@ mod geomertry_generator{
             for i in self.vertices.iter(){
                 let normalized = i - CENTRE_POINT / self.radius;
                 let u: f32 = f32::atan2(normalized.x, normalized.z) / (std::f32::consts::PI * 2.) + 0.5;
-                let v: f32 = (f32::asin(-normalized.y) / std::f32::consts::PI) + 0.5;//-normalized.y * 0.5 + 0.5;
+                let v: f32 = (f32::asin(-normalized.y) / std::f32::consts::PI) + 0.5;
                 uv_vertices.append(&mut vec![u, v]);
             }
             uv_vertices
