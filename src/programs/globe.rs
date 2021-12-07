@@ -10,6 +10,8 @@ use nalgebra::Vector3;
 const EARTH:  &str = "../../data/image/earth.jpg";
 const TEST:   &str = "../../data/image/test.png";
 const EARTH2: &str = "../../data/image/PathfinderMap_hires.jpg";
+const DATA: &str = "../../data/image/data.png";
+const FLIPBOOK: &str = "../../data/image/houdinisheet.jpg";
 
 //Modules
 pub struct Globe {
@@ -46,8 +48,9 @@ impl Globe {
 
         //generate arrays for Ico sphere
         let positions_and_indices = globe.gen_mesh();
-        let uv_map = globe.gen_uv_map();
-        let texture = create_texture(gl, EARTH);
+        const Y: usize = 2022 - 1880;
+        let uv_map = globe.flipbook_texture_map::<12, 142>(1000);
+        let texture = create_texture(gl, DATA);
 
         //Vertices Buffer
         let vertices_array: Float32Array = VecToArray::new(&positions_and_indices.0);
@@ -190,37 +193,43 @@ mod geomertry_generator{
     // mostly coppied from https://github.com/Gonkee/Gepe3D/blob/main/Gepe3D/src/Physics/GeometryGenerator.cs
 
     use std::collections::HashMap;
-    use nalgebra::{Vector2, Vector3};
     use super::super::super::log;
 
+    const CENTRE_POINT: [f32; 3] = [0., 0., 0.];
+    const fn SIZE_I(s: usize) -> usize{
+        usize::pow(4, s as u32) * 3
+    }
+    //TODO:
+    const fn SIZE_V<const S: usize>() -> usize{
+        0
+    }
 
-    const CENTRE_POINT: Vector3<f32> = Vector3::new(0., 0., 0.);
 
-    pub struct IcoSphere{
-        vertices: Vec<Vector3<f32>>,
-        indices: Vec<Vector3<u16>>,
+    pub struct IcoSphere<const V: usize, const I: usize>{
+        vertices: [[f32; 3]; V],    //Vec<Vector3 <f32>>,
+        indices:  [[u16; 3]; I],    //Vec<Vector3<u16>>,
         existing_mid_points:HashMap<u32, u16>,
         radius: f32,
     }
 
-    impl Default for IcoSphere{
+    impl Default for IcoSphere<12, 20>{
         // initialized to the starting icosahedron
         fn default() -> Self {
             const SQRT_5:   f32 = 2.23606797749978;
             const PHI:      f32 = (1. + SQRT_5) / 2.;
 
             Self{
-                vertices: vec![
-                    Vector3::new( -1., PHI,  0.), Vector3::new(  1., PHI,  0.), Vector3::new( -1.,-PHI,  0.), Vector3::new(  1.,-PHI,  0.), 
-                    Vector3::new(  0., -1., PHI), Vector3::new(  0.,  1., PHI), Vector3::new(  0., -1.,-PHI), Vector3::new(  0.,  1.,-PHI),
-                    Vector3::new( PHI,  0., -1.), Vector3::new( PHI,  0.,  1.), Vector3::new(-PHI,  0., -1.), Vector3::new(-PHI,  0.,  1.)
+                vertices:[
+                    [ -1., PHI,  0.], [  1., PHI,  0.], [ -1.,-PHI,  0.], [  1.,-PHI,  0.], 
+                    [  0., -1., PHI], [  0.,  1., PHI], [  0., -1.,-PHI], [  0.,  1.,-PHI],
+                    [ PHI,  0., -1.], [ PHI,  0.,  1.], [-PHI,  0., -1.], [-PHI,  0.,  1.]
                 ],
-                indices: vec![
-                    Vector3::new( 0, 11,  5), Vector3::new(0,  5,  1),Vector3::new(0,  1,  7),Vector3::new( 0,  7, 10),
-                    Vector3::new( 0, 10, 11), Vector3::new(1,  5,  9),Vector3::new(5, 11,  4),Vector3::new(11, 10,  2),
-                    Vector3::new(10,  7,  6), Vector3::new(7,  1,  8),Vector3::new(3,  9,  4),Vector3::new( 3,  4,  2),
-                    Vector3::new( 3,  2,  6), Vector3::new(3,  6,  8),Vector3::new(3,  8,  9),Vector3::new( 4,  9,  5),
-                    Vector3::new( 2,  4, 11), Vector3::new(6,  2, 10),Vector3::new(8,  6,  7),Vector3::new( 9,  8,  1)
+                indices:[
+                    [ 0, 11,  5], [0,  5,  1], [0,  1,  7], [ 0,  7, 10],
+                    [ 0, 10, 11], [1,  5,  9], [5, 11,  4], [11, 10,  2],
+                    [10,  7,  6], [7,  1,  8], [3,  9,  4], [ 3,  4,  2],
+                    [ 3,  2,  6], [3,  6,  8], [3,  8,  9], [ 4,  9,  5],
+                    [ 2,  4, 11], [6,  2, 10], [8,  6,  7], [ 9,  8,  1]
                 ],
                 existing_mid_points: HashMap::new(),
                 radius: 0.
@@ -228,33 +237,58 @@ mod geomertry_generator{
         }
     }
 
-    impl IcoSphere{
-        pub fn new(radius: f32, subdivision: usize) -> Self{
-            let mut base = Self::default();
-            base.radius = radius;
+    impl<const V: usize, const I: usize> IcoSphere<V, I>{
 
-            for i in &mut base.vertices {
-                *i = i.normalize();
+        pub fn new<const S: usize>(radius: f32) -> Self{
+            use super::super::common_funcs::normals::q_rsqrt;
+
+            // let mut base = Self::default();
+            // base.radius = radius;
+
+            let ret = Self{
+                vertices: [[0.; 3]; SIZE_V::<S>()],
+                indices:  [[u16; 3]; I],    
+                existing_mid_points:HashMap<u32, u16>,
+                radius: f32,
             }
 
-            for _ in 0..subdivision {
+            const closure: fn(&mut [f32; 3]) -> [f32; 3] = |x: &mut [f32; 3]|{
+                x.map(q_rsqrt)
+            };
+            base.vertices.as_mut().map(closure);
+            // for i in &mut base.vertices {
+            //     *i = i.normalize();
+            // }
 
+            for _ in 0..S{
                 // every iteration makes a new list of triangles
-                let mut new_indices: Vec<Vector3<u16>> =Vec::new();
+                let mut new_indices: Vec<[u16; 3]> = Vec::new();
 
-                for i in 0..base.indices.len(){
-                    let a = base.gen_mid_point_id(base.indices[i].x, base.indices[i].y);
-                    let b = base.gen_mid_point_id(base.indices[i].y, base.indices[i].z);
-                    let c = base.gen_mid_point_id(base.indices[i].z, base.indices[i].x);
+                base.indices = base.indices.as_ref().map(
+                    |x: &[u16; 3]|{
 
-                    // replace triangle with 4 new triangles
-                    new_indices.push(Vector3::new(base.indices[i].x, a, c));
-                    new_indices.push(Vector3::new(base.indices[i].y, b, a));
-                    new_indices.push(Vector3::new(base.indices[i].z, c, b));
-                    new_indices.push(Vector3::new(                a, b, c));
-                }
-                base.indices = new_indices;
+                    }
+                );
             }
+
+            // for _ in 0..subdivision {
+
+            //     // every iteration makes a new list of triangles
+            //     let mut new_indices: [[u16; 3]; ]//Vec<Vector3<u16>> =Vec::new();
+
+            //     for i in 0..base.indices.len(){
+            //         let a = base.gen_mid_point_id(base.indices[i].x, base.indices[i].y);
+            //         let b = base.gen_mid_point_id(base.indices[i].y, base.indices[i].z);
+            //         let c = base.gen_mid_point_id(base.indices[i].z, base.indices[i].x);
+
+            //         // replace triangle with 4 new triangles
+            //         new_indices.push([[base.indices[i].x, a, c));
+            //         new_indices.push([[base.indices[i].y, b, a));
+            //         new_indices.push([[base.indices[i].z, c, b));
+            //         new_indices.push([[                a, b, c));
+            //     }
+            //     base.indices = new_indices;
+            // }
             for i in &mut base.vertices{
                 *i *= radius;
             }
@@ -279,16 +313,33 @@ mod geomertry_generator{
     
         }
 
-        pub fn gen_uv_map(&self) -> Vec<f32>{
-            let mut uv_vertices: Vec<f32> = Vec::new();
+        #[inline]
+        pub const fn gen_uv_map<const N: usize>(&self) -> [[f32; 2]; N]{
+            // let mut uv_vertices: Vec<f32> = Vec::new();
 
-            for i in self.vertices.iter(){
-                let normalized = i - CENTRE_POINT / self.radius;
-                let u: f32 = f32::atan2(normalized.x, normalized.z) / (std::f32::consts::PI * 2.) + 0.5;
-                let v: f32 = (f32::asin(-normalized.y) / std::f32::consts::PI) + 0.5;
-                uv_vertices.append(&mut vec![u, v]);
-            }
-            uv_vertices
+
+            // for i in self.vertices.iter(){
+            //     let normalized = i - CENTRE_POINT / self.radius;
+            //     let u: f32 = f32::atan2(normalized.x, normalized.z) / (std::f32::consts::PI * 2.) + 0.5;
+            //     let v: f32 = (f32::asin(-normalized.y) / std::f32::consts::PI) + 0.5;
+            //     uv_vertices.append(&mut vec![u, v]);
+            // }
+        }
+
+        #[inline]
+        pub const fn flipbook_texture_map<const X: usize, const Y: usize, const N: usize>(&self, t: usize, uv_map: &[[f32; 2]; N]) -> [[f32; 2]; N]{
+            let x = X as f32;
+            let y = Y as f32;
+
+            
+            let index = t % (X * Y);
+            let x_offset = (index % X) as f32 / x;
+            let y_offset = (index / X) as f32 / y;
+
+            let closure = |i: [f32; 2]| -> [f32; 2]{
+                [i[0] / x + x_offset, i[1] / y + y_offset]
+            };
+            uv_map.map(closure)
         }
 
         pub fn gen_mesh(&self) -> (Vec<f32>, Vec<u16>){
@@ -303,5 +354,7 @@ mod geomertry_generator{
             }
             (vertices, indices)
         }
+
+        
     }
 }

@@ -14,6 +14,7 @@ mod shaders;
 mod app_state;
 mod constants;
 
+
 #[wasm_bindgen]
 extern "C"{
     #[wasm_bindgen(js_namespace = console)]
