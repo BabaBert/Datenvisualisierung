@@ -64,7 +64,7 @@ pub mod cf{
 }
 
 pub mod matrixes{
-    use nalgebra::{Matrix4, Perspective3, geometry::Rotation};
+    use nalgebra::{Matrix4, Perspective3};
     use super::super::super::constants::*;
     pub fn translation_matrix(tx: f32, ty: f32, tz: f32) -> [f32; 16] {
         let mut return_var = [0.; 16];
@@ -147,7 +147,7 @@ pub mod matrixes{
         canvas_width: f32,
         rotation_angle_x_axis: f32,
         rotation_angle_y_axis: f32,
-        zoom: f32,
+        _zoom: f32,
     ) -> Matrices3D {
         let mut return_var = Matrices3D {
             normals_rotation: [0.; 16],
@@ -233,7 +233,7 @@ pub mod normals{
     //1/√x 
     //https://github.com/MrGlockenspiel/Q_rsqrt-in-Rust
     #[inline]
-    pub const fn q_rsqrt(number: f32) -> f32{
+    pub fn q_rsqrt(number: f32) -> f32{
         use std::mem;
 
         let mut i: i32;
@@ -340,7 +340,7 @@ pub mod textures{
         WebGlRenderingContext as GL,
         *
     };
-    use wasm_bindgen::JsValue;
+    
 
     #[inline]
     pub fn image_on_load(gl: &GL, texture: &WebGlTexture, image: &HtmlImageElement){
@@ -352,7 +352,7 @@ pub mod textures{
         gl.bind_texture(GL::TEXTURE_2D, Some(texture));
         gl.tex_image_2d_with_u32_and_u32_and_image(GL::TEXTURE_2D, LEVEL, INTERNAL_FORMAT as i32, SRC_FORMAT, SRC_TYPE, image);
         {
-            let is_power_of_two = |x: i32| -> bool {
+            let _is_power_of_two = |x: i32| -> bool {
                 x & x-1 == 0
             };
 
@@ -368,7 +368,7 @@ pub mod textures{
 
     pub fn create_texture(gl: &GL, src: &str) -> WebGlTexture{
         use wasm_bindgen::{closure::Closure, JsCast}; 
-        use js_sys::*;
+        
         
         let texture = gl.create_texture().unwrap();
         gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
