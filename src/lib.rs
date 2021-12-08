@@ -51,7 +51,7 @@ impl CustomEvents{
 #[wasm_bindgen]
 pub struct Client {
     gl: GL,
-    //program_globe: programs::Globe,
+    program_globe: programs::Globe,
 }
 
 #[wasm_bindgen]
@@ -61,10 +61,9 @@ impl Client{
 
         console_error_panic_hook::set_once();
         let gl = gl_setup::initialize_webgl_context().unwrap();
-        //programs::read_data();
         
         Self{
-            //program_globe: programs::Globe::new(&gl),
+            program_globe: programs::Globe::new(&gl),
             gl: gl,
         }
     }
@@ -77,21 +76,21 @@ impl Client{
     pub fn render(&self){
         self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT); 
 
-        let _curr_state = app_state::get_curr_state();
+        let curr_state = app_state::get_curr_state();
 
-        // self.program_globe.render(
-        //     &self.gl,
-        //     curr_state.control_bottom,
-        //     curr_state.control_top,
-        //     curr_state.control_left,
-        //     curr_state.control_right,
-        //     curr_state.canvas_height,
-        //     curr_state.canvas_width,
-        //     curr_state.rotation_x_axis,
-        //     curr_state.rotation_y_axis,
-        //     curr_state.mouse_scroll,
-        //     //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
-        // );
+        self.program_globe.render(
+            &self.gl,
+            curr_state.control_bottom,
+            curr_state.control_top,
+            curr_state.control_left,
+            curr_state.control_right,
+            curr_state.canvas_height,
+            curr_state.canvas_width,
+            curr_state.rotation_x_axis,
+            curr_state.rotation_y_axis,
+            curr_state.mouse_scroll,
+            //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
+        );
     }
 }
 
