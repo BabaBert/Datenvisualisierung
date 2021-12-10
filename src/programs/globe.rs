@@ -43,19 +43,21 @@ impl Globe {
             &super::super::shaders::fragment::globe::SHADER,
         ).unwrap();
         
-        const VERTICES: usize = SIZE_V(5);
-        const INDICES: usize = SIZE_I(5);
+        const Y: usize = 2022 - 1880;
+
+        const SUBDIVIONS: usize = 4;
+        const VERTICES: usize = size_v(SUBDIVIONS);
+        const INDICES: usize = size_i(SUBDIVIONS);
         const VERTICES_S: usize = VERTICES * 3;
-        const INDICES_S: usize = INDICES * 2;
+        const INDICES_S: usize = INDICES * 3;
         
-        let globe: IcoSphere<VERTICES,  INDICES> = IcoSphere::new::<5>(1.);
+        let globe: IcoSphere<VERTICES,  INDICES> = IcoSphere::new(1., SUBDIVIONS);
 
         //generate arrays for Ico sphere
         let positions_and_indices = globe.gen_mesh::<VERTICES_S, INDICES_S>();
-        const Y: usize = 2022 - 1880;
         let uv_map = globe.gen_uv_map::<VERTICES_S>();
-        //let uv_map = globe.flipbook_texture_map::<12, 142>(1000);
-        let texture = create_texture(gl, EARTH);
+        let uv_map = globe.flipbook_texture_map::<12, 142>(11, &uv_map);
+        let texture = create_texture(gl, DATA);
 
         //Vertices Buffer
         let vertices_array: Float32Array = ArrayToJS::new(&positions_and_indices.0);
@@ -70,24 +72,24 @@ impl Globe {
         gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &indices_array, GL::STATIC_DRAW);  
         
         //Texture Coordinates Buffer
-        let texture_array: Float32Array = ArrayToJS::new(&uv_map);
+        use std::mem;
+        let uv_map: &[f32; 2*VERTICES] = unsafe{mem::transmute(uv_map.as_ptr())};
+        let texture_array: Float32Array = ArrayToJS::new(uv_map);
         let tex_coord_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&tex_coord_buffer));
         gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &texture_array, GL::STATIC_DRAW);
-
-
+    
         Self {
             u_projection_matrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
             u_sampler: gl.get_uniform_location(&program, "uSampler").unwrap(),
-
             program: program,
-
             indices_buffer: indices_buffer,
             index_count: indices_array.length() as i32,
             position_buffer: position_buffer,
             texture_coord_buffer: tex_coord_buffer,
             texture: texture,
         }
+        
     }
 
     pub fn render(
@@ -234,25 +236,23 @@ mod geomertry_generator{
 
     use std::collections::HashMap;
     use super::super::super::log;
-    use super::super::common_funcs::normals::q_rsqrt;
-
-    const CENTRE_POINT: [f32; 3] = [0., 0., 0.];
+    use super::super::common_funcs::normals::normalize;
 
     //indices for subdivided triangle
-    pub const fn SIZE_I(x: usize) -> usize{
-        usize::pow(4, x as u32) * 3
+    pub const fn size_i(x: usize) -> usize{
+        usize::pow(4, x as u32) * 20
     }
     //vertices for subdivided triangle
-    pub const fn SIZE_V(x: usize) -> usize{
-        (3 * usize::pow(2, x as u32) + usize::pow(2, (2*x) as u32) + 2)/2
+    pub const fn size_v(x: usize) -> usize{
+        usize::pow(4, x as u32) * 10 + 2
+        //(usize::pow(2, x as u32) + usize::pow(2, (2*x) as u32) + 2)/2 * 12
     }
 
 
     pub struct IcoSphere<const V: usize, const I: usize>{
         vertices: [[f32; 3]; V],    //Vec<Vector3 <f32>>,
         indices:  [[u16; 3]; I],    //Vec<Vector3<u16>>,
-        existing_mid_points:HashMap<u32, u16>,
-        radius: f32,
+        radius: f32
     }
 
     impl Default for IcoSphere<12, 20>{
@@ -274,8 +274,7 @@ mod geomertry_generator{
                     [ 3,  2,  6], [3,  6,  8], [3,  8,  9], [ 4,  9,  5],
                     [ 2,  4, 11], [6,  2, 10], [8,  6,  7], [ 9,  8,  1]
                 ],
-                existing_mid_points: HashMap::new(),
-                radius: 0.
+                radius: 1.
             }
         }
     }
@@ -284,75 +283,45 @@ mod geomertry_generator{
 
 
         //TODO: check
-        pub fn new<const S: usize>(radius: f32) -> Self{
+        pub fn new(radius: f32, subdivisions: usize) -> Self{   
+            const X: usize = 0;
+            const Y: usize = 1;
+            const Z: usize = 2;
 
-            let mut base = IcoSphere::default();
+            let base = IcoSphere::default();
+            let mut existing_mid_points = HashMap::<u32, u16>::new();
+            let mut vertices = base.vertices.map(normalize).to_vec();
+            let mut indices = base.indices.to_vec();
 
-            let mut ret = Self{
-                vertices: [[0.; 3]; V],
-                indices:  [[0 ; 3]; I],    
-                existing_mid_points: HashMap::new(),
-                radius: radius,
-            };
-
-            base.vertices.map(|x: [f32; 3]|{
-                x.map(q_rsqrt)
-            });
-
-            for i in 0..S{
+            for _ in 0..subdivisions {
 
                 // every iteration makes a new list of triangles
-                for j in 0..base.indices.len(){
+                let mut new_indices: Vec<[u16; 3]> = Vec::new();
 
-                    const X: usize = 0;
-                    const Y: usize = 1;
-                    const Z: usize = 2;
-                    let a = base.gen_mid_point_id(base.indices[j][X], base.indices[j][Y]);
-                    let b = base.gen_mid_point_id(base.indices[j][Y], base.indices[j][Z]);
-                    let c = base.gen_mid_point_id(base.indices[j][Z], base.indices[j][X]);
+                for i in 0..indices.len(){
+                    let a = existing_mid_points.gen_mid_point_id(&mut vertices, indices[i][X], indices[i][Y]);
+                    let b = existing_mid_points.gen_mid_point_id(&mut vertices, indices[i][Y], indices[i][Z]);
+                    let c = existing_mid_points.gen_mid_point_id(&mut vertices, indices[i][Z], indices[i][X]);
+
                     // replace triangle with 4 new triangles
-                    ret.indices[i+j+0] = [base.indices[j][X], a, c];
-                    ret.indices[i+j+1] = [base.indices[j][Y], b, a];
-                    ret.indices[i+j+2] = [base.indices[j][Z], c, b];
-                    ret.indices[i+j+3] = [                 a, b, c];
+                    new_indices.push([indices[i][X], a, c]);
+                    new_indices.push([indices[i][Y], b, a]);
+                    new_indices.push([indices[i][Z], c, b]);
+                    new_indices.push([            a, b, c]);
                 }
-                
+                indices = new_indices;
             }
 
-            ret.vertices = ret.vertices.map(|x|{x.map(|x|{x * radius})});
-            ret
-        }
-
-        fn gen_mid_point_id(&mut self, v1: u16, v2: u16) -> u16{
-            use nalgebra::{min, max};
-
-            // check if midpoint has already been generated by another triangle
-            let unique_combination: u32 = ((min(v1, v2) as u32) << 16) + max(v1, v2) as u32;
-            
-            match self.existing_mid_points.contains_key(&unique_combination) {
-                true => *self.existing_mid_points.get(&unique_combination).unwrap(),
-                false => {
-                    let mid_point: [f32; 3] = [
-                        self.vertices[v1 as usize][0] + self.vertices[v2 as usize][0],
-                        self.vertices[v1 as usize][1] + self.vertices[v2 as usize][1],
-                        self.vertices[v1 as usize][2] + self.vertices[v2 as usize][2]
-                    ].map(|x|{q_rsqrt(x/2.)});
-                    let id: u16 = self.vertices.len() as u16;
-                    self.existing_mid_points.insert(unique_combination, id);
-                    for i in 0..self.vertices.len()-1{
-                        if self.vertices[i] == [0., 0., 0.]{
-                            self.vertices[i] = mid_point;
-                            break;
-                        }
-                    }
-                    id
-                }
+            let vertices_array: [[f32; 3]; V] = vertices.try_into().unwrap();
+            Self{
+                vertices: vertices_array.map(|x|{x.map(|x|{x * radius})}),  
+                indices:  indices.try_into().unwrap(),
+                radius: radius  
             }
-    
         }
 
         #[inline]
-        pub fn gen_uv_map<const N: usize>(&self) -> [f32; N]{
+        pub fn gen_uv_map<const N: usize>(&self) -> [[f32; 2]; V]{
             use std::mem;
             let uv_map: [[f32; 2]; V];
             let closure = |i: [f32; 3]| -> [f32; 2]{
@@ -361,13 +330,11 @@ mod geomertry_generator{
                 let v: f32 = (f32::asin(-normalized[1]) / std::f32::consts::PI) + 0.5;
                 [u, v]
             };
-            uv_map = self.vertices.map(closure);
-            let ret: &[f32; N] = unsafe{mem::transmute(uv_map.as_ptr())};
-            *ret
+            self.vertices.map(closure)
         }
 
         #[inline]
-        pub fn flipbook_texture_map<const X: usize, const Y: usize, const N: usize>(&self, t: usize, uv_map: &[[f32; 2]; N]) -> [[f32; 2]; N]{
+        pub fn flipbook_texture_map<const X: usize, const Y: usize>(&self, t: usize, uv_map: &[[f32; 2]; V]) -> [[f32; 2]; V]{
             let x = X as f32;
             let y = Y as f32;
 
@@ -382,13 +349,42 @@ mod geomertry_generator{
             uv_map.map(closure)
         }
 
-        pub fn gen_mesh<const N: usize, const M: usize>(&self) -> ([f32; N], [u16; M]){
+        pub fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]){
             use std::mem;
-            let vertices: &[f32; N] = unsafe {mem::transmute(self.vertices.as_ptr())};
-            let indices: &[u16; M] = unsafe {mem::transmute(self.indices.as_ptr())};
+            let vertices: &[f32; VS] = unsafe {mem::transmute(self.vertices.as_ptr())};
+            let indices: &[u16; IS] = unsafe {mem::transmute(self.indices.as_ptr())};
             (*vertices, *indices)
         }
 
+    }
+
+    trait MidPointID{
+        fn gen_mid_point_id(&mut self, vertices: &mut Vec<[f32; 3]>, v1: u16, v2: u16) -> u16;
+    }
+
+    impl MidPointID for HashMap<u32, u16>{
+
+        fn gen_mid_point_id(&mut self, vertices: &mut Vec<[f32; 3]>, v1: u16, v2: u16) -> u16{
+            use nalgebra::{min, max};
+
+            // check if midpoint has already been generated by another triangle
+            let unique_combination: u32 = ((min(v1, v2) as u32) << 16) + max(v1, v2) as u32;
+            
+            match self.contains_key(&unique_combination) {
+                true => *self.get(&unique_combination).unwrap(),
+                false => {
+                    let mid_point: [f32; 3] = normalize([
+                        vertices[v1 as usize][0] + vertices[v2 as usize][0],
+                        vertices[v1 as usize][1] + vertices[v2 as usize][1],
+                        vertices[v1 as usize][2] + vertices[v2 as usize][2]
+                    ].map(|x|{x/2.}));
+                    let id: u16 = vertices.len() as u16;
+                    self.insert(unique_combination, id);
+                    vertices.insert(vertices.len(), mid_point);
+                    id
+                }
+            }
+        }
     }
 
 }

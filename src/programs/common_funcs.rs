@@ -229,32 +229,11 @@ pub mod matrixes{
 
 pub mod normals{
 
-    //quacke reverse squareroot
-    //1/√x 
-    //https://github.com/MrGlockenspiel/Q_rsqrt-in-Rust
-    #[inline]
-    pub fn q_rsqrt(number: f32) -> f32{
-        use std::mem;
-
-        let mut i: i32;
-        let x2: f32;
-        let mut y: f32;
-        const THREEHALVES: f32 = 1.5;
-    
-        x2 = number * 0.5;
-        y = number;
-    
-        // Evil floating point bit level hacking
-        i = unsafe { mem::transmute(y) };
-    
-        // What the fuck?
-        i = 0x5f3759df - (i >> 1);
-        y = unsafe { mem::transmute(i) };
-    
-        // 1st iteration
-        y = y * (THREEHALVES - (x2 * y * y));
-    
-        return y;
+    pub fn normalize(vector: [f32; 3]) -> [f32; 3]{
+        let closure = |i: f32|{
+            i/f32::sqrt(f32::powi(vector[0], 2) + f32::powi(vector[1], 2) + f32::powi(vector[2], 2))
+        };
+        vector.map(closure)
     }
 
     pub fn get_grid_normals(n: usize, y_vals: &Vec<f32>) -> Vec<f32> {
