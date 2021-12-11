@@ -1,38 +1,37 @@
-use super::{common_funcs::cf, common_funcs::{matrixes::*, normals::*}};
-use js_sys::WebAssembly;
-use wasm_bindgen::{JsCast, closure::Closure};
+use super::{common_funcs::cf, common_funcs::{matrixes::*, vec_to_array::*}};
 use web_sys::{
     WebGlRenderingContext as GL,
     *
 };
-use nalgebra::Vector3;
 
 const EARTH:  &str = "../../data/image/earth.jpg";
 const TEST:   &str = "../../data/image/test.png";
 const EARTH2: &str = "../../data/image/PathfinderMap_hires.jpg";
 const DATA: &str = "../../data/image/data.png";
 const FLIPBOOK: &str = "../../data/image/houdinisheet.jpg";
+const ALPHA: &str = "../../data/image/43dfa829f98aa1da4700f0c65ce0d10e.jpg";
 
 //Modules
-pub struct Globe {
+pub struct Globe<const T: usize> {
     pub program: WebGlProgram,                      //Program pointer
     pub indices_buffer: WebGlBuffer,
     pub position_buffer: WebGlBuffer,
     pub texture_coord_buffer: WebGlBuffer,
+    pub flipbook_coord_buffer: WebGlBuffer,
+
 
     pub index_count: i32,
 
     pub u_projection_matrix: WebGlUniformLocation,
-    pub u_sampler: WebGlUniformLocation,
+    pub u_samplers: [WebGlUniformLocation; T],
 
-    pub texture: WebGlTexture,
+    pub textures: [WebGlTexture; T],
 }
 
-impl Globe {
+impl Globe<2> {
     pub fn new(gl: &WebGlRenderingContext) -> Self {
         use geomertry_generator::*;
         use super::common_funcs::textures::*;
-        use vec_to_array::ArrayToJS;
         use js_sys::*;
 
         
@@ -40,10 +39,8 @@ impl Globe {
         let program = cf::link_program(
             &gl,
             &super::super::shaders::vertex::globe::SHADER,
-            &super::super::shaders::fragment::globe::SHADER,
+            &super::super::shaders::fragment::globe2::SHADER,
         ).unwrap();
-        
-        const Y: usize = 2022 - 1880;
 
         const SUBDIVIONS: usize = 4;
         const VERTICES: usize = size_v(SUBDIVIONS);
@@ -53,41 +50,46 @@ impl Globe {
         
         let globe: IcoSphere<VERTICES,  INDICES> = IcoSphere::new(1., SUBDIVIONS);
 
-        //generate arrays for Ico sphere
-        let positions_and_indices = globe.gen_mesh::<VERTICES_S, INDICES_S>();
+        //generate arrays for sphere
+        let mesh = globe.gen_mesh::<VERTICES_S, INDICES_S>();
         let uv_map = globe.gen_uv_map::<VERTICES_S>();
-        let uv_map = globe.flipbook_texture_map::<12, 142>(11, &uv_map);
+        let flip_map = globe.flipbook_texture_map::<12, 142>(1, &uv_map);
         let texture = create_texture(gl, DATA);
+        let texture2 = create_texture(gl, EARTH);
 
         //Vertices Buffer
-        let vertices_array: Float32Array = ArrayToJS::new(&positions_and_indices.0);
+        let vertices_array: Float32Array = ArrayToJS::new(&mesh.0);
         let position_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&position_buffer));
         gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &vertices_array, GL::STATIC_DRAW);
 
         //Indeces Buffer
-        let indices_array: Uint16Array = ArrayToJS::new(&positions_and_indices.1);
+        let indices_array: Uint16Array = ArrayToJS::new(&mesh.1);
         let indices_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
         gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&indices_buffer));
         gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &indices_array, GL::STATIC_DRAW);  
         
         //Texture Coordinates Buffer
-        use std::mem;
-        let uv_map: &[f32; 2*VERTICES] = unsafe{mem::transmute(uv_map.as_ptr())};
-        let texture_array: Float32Array = ArrayToJS::new(uv_map);
-        let tex_coord_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
-        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&tex_coord_buffer));
-        gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &texture_array, GL::STATIC_DRAW);
+        let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(uv_map.as_ptr())};
+        let tex_coord_buffer = texture_coord_buffer(gl, uv_map);
+
+        //Flipbook Coordinates Buffer
+        let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(flip_map.as_ptr())};
+        let flip_coord_buffer = texture_coord_buffer(gl, uv_map);
+
     
         Self {
             u_projection_matrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
-            u_sampler: gl.get_uniform_location(&program, "uSampler").unwrap(),
+            u_samplers: 
+            [gl.get_uniform_location(&program, "uTexture").unwrap(),
+             gl.get_uniform_location(&program, "uAlpha").unwrap()],
             program: program,
             indices_buffer: indices_buffer,
             index_count: indices_array.length() as i32,
             position_buffer: position_buffer,
             texture_coord_buffer: tex_coord_buffer,
-            texture: texture,
+            flipbook_coord_buffer: flip_coord_buffer,
+            textures: [texture, texture2]
         }
         
     }
@@ -134,108 +136,32 @@ impl Globe {
         gl.vertex_attrib_pointer_with_i32(a_vertex_position as u32, 3, GL::FLOAT, false, 0, 0);
         gl.enable_vertex_attrib_array(a_vertex_position as u32);
 
-
         let a_texture_coord = gl.get_attrib_location(&self.program, "aTextureCoord");
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&self.texture_coord_buffer));
         gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
         gl.enable_vertex_attrib_array(a_texture_coord as u32);
 
+        let a_texture_coord = gl.get_attrib_location(&self.program, "aFlipbookCoord");
+        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&self.flipbook_coord_buffer));
+        gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
+        gl.enable_vertex_attrib_array(a_texture_coord as u32);
+
         gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&self.indices_buffer));
 
-        // Tell WebGL we want to affect texture unit 0
-        gl.active_texture(GL::TEXTURE0);
-        // Bind the texture to texture unit 0
-        gl.bind_texture(GL::TEXTURE_2D, Some(&self.texture));
-        // Tell the shader we bound the texture to texture unit 0
-        gl.uniform1i(Some(&self.u_sampler), 0);
-
+        super::common_funcs::textures::active_texture(gl, &self.textures[0], 0, &self.u_samplers[0]);
+        super::common_funcs::textures::active_texture(gl, &self.textures[1], 1, &self.u_samplers[1]);
 
         gl.draw_elements_with_i32(GL::TRIANGLES, self.index_count, GL::UNSIGNED_SHORT, 0);
     }
 
 }
 
-mod vec_to_array{
-    use js_sys::*;
-    use wasm_bindgen::JsCast;
 
-    pub trait VecToArray<T>{
-        fn new(vec: &Vec<T>) -> Self;
-    }
-
-    impl VecToArray<f32> for Float32Array{
-        #[inline]
-        fn new(vec: &Vec<f32>) -> Self{
-            let buffer = wasm_bindgen::memory()
-                .dyn_into::<WebAssembly::Memory>()
-                .unwrap()
-                .buffer();
-            let mem_loc = vec.as_ptr() as u32 / 4;
-            let array = Float32Array::new(&buffer).subarray(
-                mem_loc,
-                mem_loc + vec.len() as u32,
-            );
-            array
-        }
-    }
-
-    impl VecToArray<u16> for Uint16Array{
-        #[inline]
-        fn new(vec: &Vec<u16>) -> Self{
-            let buffer = wasm_bindgen::memory()
-                .dyn_into::<WebAssembly::Memory>()
-                .unwrap()
-                .buffer();
-            let mem_loc = vec.as_ptr() as u32 / 2;
-            let array = Uint16Array::new(&buffer).subarray(
-                mem_loc,
-                mem_loc + vec.len() as u32,
-            );
-            array
-        }
-    }
-
-    pub trait ArrayToJS<T>{
-        fn new<const S: usize>(array: &[T; S]) -> Self;
-    }
-
-    impl ArrayToJS<f32> for Float32Array{
-        #[inline]
-        fn new<const S: usize>(array: &[f32; S]) -> Self{
-            let buffer = wasm_bindgen::memory()
-                .dyn_into::<WebAssembly::Memory>()
-                .unwrap()
-                .buffer();
-            let mem_loc = array.as_ptr() as u32 / 4;
-            let ret = Float32Array::new(&buffer).subarray(
-                mem_loc,
-                mem_loc + array.len() as u32,
-            );
-            ret
-        }
-    }
-
-    impl ArrayToJS<u16> for Uint16Array{
-        fn new<const S: usize>(array: &[u16; S]) -> Self{
-            let buffer = wasm_bindgen::memory()
-                .dyn_into::<WebAssembly::Memory>()
-                .unwrap()
-                .buffer();
-            let mem_loc = array.as_ptr() as u32 / 2;
-            let ret = Uint16Array::new(&buffer).subarray(
-                mem_loc,
-                mem_loc + array.len() as u32,
-            );
-            ret
-        }
-    }
-}
 
 mod geomertry_generator{
     // mostly coppied from https://github.com/Gonkee/Gepe3D/blob/main/Gepe3D/src/Physics/GeometryGenerator.cs
 
     use std::collections::HashMap;
-    use super::super::super::log;
     use super::super::common_funcs::normals::normalize;
 
     //indices for subdivided triangle
@@ -322,8 +248,6 @@ mod geomertry_generator{
 
         #[inline]
         pub fn gen_uv_map<const N: usize>(&self) -> [[f32; 2]; V]{
-            use std::mem;
-            let uv_map: [[f32; 2]; V];
             let closure = |i: [f32; 3]| -> [f32; 2]{
                 let normalized: [f32; 3] = i.map(|x|{x/self.radius});
                 let u: f32 = f32::atan2(normalized[0], normalized[2]) / (std::f32::consts::PI * 2.) + 0.5;
@@ -387,10 +311,4 @@ mod geomertry_generator{
         }
     }
 
-}
-
-pub fn test(){
-    use std::mem;
-    let test: &[f32; 3*3] = unsafe {mem::transmute(&[[3f32, 3., 3.], [1., 1., 1.], [0., 0., 0.]])};
-    super::super::log(&format!("{:?}", *test));
 }

@@ -1,15 +1,18 @@
+use web_sys::{
+    WebGlRenderingContext as GL,
+    *
+};
 
-const DATA: &str = "../../data/geo/ncdc-merged-sfc-mntp.txt";
+pub struct Globe {
+    pub program: WebGlProgram,                      //Program pointer
+    pub indices_buffer: WebGlBuffer,
+    pub position_buffer: WebGlBuffer,
+    pub texture_coord_buffer: WebGlBuffer,
 
-pub fn read_data(){
-    use std::fs;
+    pub index_count: i32,
 
-    let _input = fs::read_to_string(DATA).expect("Something went wrong reading the file");
+    pub u_projection_matrix: WebGlUniformLocation,
+    pub u_sampler: WebGlUniformLocation,
 
-    for _y in 0..72{
-        for _x in 0..72{
-
-        }
-    }
-
+    pub texture: WebGlTexture,
 }

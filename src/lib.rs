@@ -51,7 +51,7 @@ impl CustomEvents{
 #[wasm_bindgen]
 pub struct Client {
     gl: GL,
-    program_globe: programs::Globe,
+    program_globe: programs::Globe::<2>,
 }
 
 #[wasm_bindgen]

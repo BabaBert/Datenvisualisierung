@@ -226,7 +226,6 @@ pub mod matrixes{
     }
 }
 
-
 pub mod normals{
 
     pub fn normalize(vector: [f32; 3]) -> [f32; 3]{
@@ -319,7 +318,60 @@ pub mod textures{
         WebGlRenderingContext as GL,
         *
     };
+    use js_sys::*;
+
+    const TEXTURES: [u32; 32] = [
+        GL::TEXTURE0,
+        GL::TEXTURE1,
+        GL::TEXTURE2,
+        GL::TEXTURE3,
+        GL::TEXTURE4,
+        GL::TEXTURE5,
+        GL::TEXTURE6,
+        GL::TEXTURE7,
+        GL::TEXTURE8,
+        GL::TEXTURE9,
+        GL::TEXTURE10,
+        GL::TEXTURE11,
+        GL::TEXTURE12,
+        GL::TEXTURE13,
+        GL::TEXTURE14,
+        GL::TEXTURE15,
+        GL::TEXTURE16,
+        GL::TEXTURE17,
+        GL::TEXTURE18,
+        GL::TEXTURE19,
+        GL::TEXTURE20,
+        GL::TEXTURE21,
+        GL::TEXTURE22,
+        GL::TEXTURE23,
+        GL::TEXTURE24,
+        GL::TEXTURE25,
+        GL::TEXTURE26,
+        GL::TEXTURE27,
+        GL::TEXTURE28,
+        GL::TEXTURE29,
+        GL::TEXTURE30,
+        GL::TEXTURE31,
+    ];
+
+    #[inline]
+    pub fn texture_coord_buffer< const UV: usize>(gl: &GL, uv_map: &[f32; UV]) -> WebGlBuffer{
+        use super::vec_to_array::*;
+        let uv_map: &[f32; UV] = unsafe{std::mem::transmute(uv_map.as_ptr())};
+        let texture_array: Float32Array = ArrayToJS::new(uv_map);
+        let tex_coord_buffer = gl.create_buffer().ok_or("failed to create buffer").unwrap();
+        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&tex_coord_buffer));
+        gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &texture_array, GL::STATIC_DRAW);
+        tex_coord_buffer
+    }
     
+    #[inline]
+    pub fn active_texture(gl: &GL, texture: &WebGlTexture, index: usize, location: &WebGlUniformLocation){
+        gl.active_texture(TEXTURES[index]);
+        gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+        gl.uniform1i(Some(location), index as i32);
+    }
 
     #[inline]
     pub fn image_on_load(gl: &GL, texture: &WebGlTexture, image: &HtmlImageElement){
@@ -329,22 +381,22 @@ pub mod textures{
         const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
 
         gl.bind_texture(GL::TEXTURE_2D, Some(texture));
-        gl.tex_image_2d_with_u32_and_u32_and_image(GL::TEXTURE_2D, LEVEL, INTERNAL_FORMAT as i32, SRC_FORMAT, SRC_TYPE, image);
-        {
-            let _is_power_of_two = |x: i32| -> bool {
-                x & x-1 == 0
-            };
-
-            // if is_power_of_two(image.width() as i32) && is_power_of_two(image.height() as i32){
-            //     gl.generate_mipmap(GL::TEXTURE_2D);
-            // }
-            // else{
-            //     //gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
-            //     //gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
-            // }
+        gl.tex_image_2d_with_u32_and_u32_and_image(GL::TEXTURE_2D, LEVEL, INTERNAL_FORMAT as i32, SRC_FORMAT, SRC_TYPE, image).unwrap();
+        
+        let is_power_of_two = |x: i32| -> bool {
+            x & x-1 == 0
+        };
+        if is_power_of_two(image.width() as i32) && is_power_of_two(image.height() as i32){
+            gl.generate_mipmap(GL::TEXTURE_2D);
         }
+        else{
+            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
+            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
+        }
+        
     }
 
+    #[inline]
     pub fn create_texture(gl: &GL, src: &str) -> WebGlTexture{
         use wasm_bindgen::{closure::Closure, JsCast}; 
         
@@ -398,4 +450,80 @@ pub mod textures{
     }
 
     
+}
+
+pub mod vec_to_array{
+    use js_sys::*;
+    use wasm_bindgen::JsCast;
+
+    pub trait VecToArray<T>{
+        fn new(vec: &Vec<T>) -> Self;
+    }
+
+    impl VecToArray<f32> for Float32Array{
+        #[inline]
+        fn new(vec: &Vec<f32>) -> Self{
+            let buffer = wasm_bindgen::memory()
+                .dyn_into::<WebAssembly::Memory>()
+                .unwrap()
+                .buffer();
+            let mem_loc = vec.as_ptr() as u32 / 4;
+            let array = Float32Array::new(&buffer).subarray(
+                mem_loc,
+                mem_loc + vec.len() as u32,
+            );
+            array
+        }
+    }
+
+    impl VecToArray<u16> for Uint16Array{
+        #[inline]
+        fn new(vec: &Vec<u16>) -> Self{
+            let buffer = wasm_bindgen::memory()
+                .dyn_into::<WebAssembly::Memory>()
+                .unwrap()
+                .buffer();
+            let mem_loc = vec.as_ptr() as u32 / 2;
+            let array = Uint16Array::new(&buffer).subarray(
+                mem_loc,
+                mem_loc + vec.len() as u32,
+            );
+            array
+        }
+    }
+
+    pub trait ArrayToJS<T>{
+        fn new<const S: usize>(array: &[T; S]) -> Self;
+    }
+
+    impl ArrayToJS<f32> for Float32Array{
+        #[inline]
+        fn new<const S: usize>(array: &[f32; S]) -> Self{
+            let buffer = wasm_bindgen::memory()
+                .dyn_into::<WebAssembly::Memory>()
+                .unwrap()
+                .buffer();
+            let mem_loc = array.as_ptr() as u32 / 4;
+            let ret = Float32Array::new(&buffer).subarray(
+                mem_loc,
+                mem_loc + array.len() as u32,
+            );
+            ret
+        }
+    }
+
+    impl ArrayToJS<u16> for Uint16Array{
+        fn new<const S: usize>(array: &[u16; S]) -> Self{
+            let buffer = wasm_bindgen::memory()
+                .dyn_into::<WebAssembly::Memory>()
+                .unwrap()
+                .buffer();
+            let mem_loc = array.as_ptr() as u32 / 2;
+            let ret = Uint16Array::new(&buffer).subarray(
+                mem_loc,
+                mem_loc + array.len() as u32,
+            );
+            ret
+        }
+    }
 }
