@@ -19,7 +19,7 @@ rust.then(m => {
         return;
     }
     
-    const FPS_THROTTLE = 1000.0 / 30.0; // milliseconds / frames
+    const FPS_THROTTLE = 1000.0 / 60.0; // milliseconds / frames
     const VIDEO_FRAME_RATE = 1000. / 24.;
     const Client = new m.Client();
     const initialTime = Date.now();
@@ -54,10 +54,6 @@ rust.then(m => {
             let elapsedTime = currTime - initialTime;
             Client.update(elapsedTime, window.innerHeight, window.innerWidth);
             Client.render();
-        }
-
-        if(currTime >= lastDrawTime + VIDEO_FRAME_RATE){
-            
         }
     }
 

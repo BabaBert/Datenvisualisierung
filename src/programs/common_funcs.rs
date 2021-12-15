@@ -374,32 +374,8 @@ pub mod textures{
     }
 
     #[inline]
-    pub fn image_on_load(gl: &GL, texture: &WebGlTexture, image: &HtmlImageElement){
-        const LEVEL: i32 = 0;
-        const INTERNAL_FORMAT: u32 = GL::RGBA;
-        const SRC_FORMAT: u32 = GL::RGBA;
-        const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
-
-        gl.bind_texture(GL::TEXTURE_2D, Some(texture));
-        gl.tex_image_2d_with_u32_and_u32_and_image(GL::TEXTURE_2D, LEVEL, INTERNAL_FORMAT as i32, SRC_FORMAT, SRC_TYPE, image).unwrap();
-        
-        let is_power_of_two = |x: i32| -> bool {
-            x & x-1 == 0
-        };
-        if is_power_of_two(image.width() as i32) && is_power_of_two(image.height() as i32){
-            gl.generate_mipmap(GL::TEXTURE_2D);
-        }
-        else{
-            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
-            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
-        }
-        
-    }
-
-    #[inline]
     pub fn create_texture(gl: &GL, src: &str) -> WebGlTexture{
         use wasm_bindgen::{closure::Closure, JsCast}; 
-        
         
         let texture = gl.create_texture().unwrap();
         gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
@@ -409,44 +385,140 @@ pub mod textures{
         super::super::super::log(&image.current_src());
 
         //Event handler for when the image is loaded
-        {
-            let gl_c = gl.clone();
-            let texture_c = texture.clone();
-            let image_c = image.clone();
-            let listener: Closure<dyn Fn()> = Closure::wrap(Box::new(move ||{
+        let gl_c = gl.clone();
+        let texture_c = texture.clone();
+        let image_c = image.clone();
+        let listener: Closure<dyn Fn()> = Closure::wrap(Box::new(move ||{
                 //image_on_load(&gl_c, &texture_c, &image_c);
                 gl_c.bind_texture(GL::TEXTURE_2D, Some(&texture_c));
                 gl_c.tex_image_2d_with_u32_and_u32_and_image(
                     GL::TEXTURE_2D,         //target
                     0,                      //level
-                    GL::RGBA as i32,        //internal format
-                    GL::RGBA,               //source format
+                    GL::RGBA as i32,          //internal format
+                    GL::RGBA,                 //source format
                     GL::UNSIGNED_BYTE,      //source type
                     &image_c                //image
                 ).unwrap();    
-            }));
-            image.set_onload(Some(listener.as_ref().unchecked_ref()));
-            listener.forget();
-        }
+
+                const IS_POWER_OF_TWO: fn(i32) -> bool = |x: i32| -> bool {
+                    x & x-1 == 0
+                };
+                if IS_POWER_OF_TWO(image_c.width() as i32) && IS_POWER_OF_TWO(image_c.height() as i32){
+                    gl_c.generate_mipmap(GL::TEXTURE_2D);
+                }
+                else{
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE as i32);
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
+                }
+        }));
+        image.set_onload(Some(listener.as_ref().unchecked_ref()));
+        listener.forget();
 
         //Pixel to be used while loading
-        {
-            const WIDTH: i32 = 1;
-            const HEIGHT: i32 = 1;
-            const SRC_FORMAT: u32 =  GL::RGBA;
-            const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
-            let mut pixel: [u8; 4] = [0, 0, 255, 255];
-            gl.read_pixels_with_opt_u8_array(0, 0, WIDTH, HEIGHT, SRC_FORMAT, SRC_TYPE, Some(&mut pixel)).unwrap();
-        }
+        const WIDTH: i32 = 1;
+        const HEIGHT: i32 = 1;
+        const SRC_FORMAT: u32 =  GL::RGBA;
+        const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
+        let mut pixel: [u8; 4] = [0, 0, 255, 255];
+        gl.read_pixels_with_opt_u8_array(0, 0, WIDTH, HEIGHT, SRC_FORMAT, SRC_TYPE, Some(&mut pixel)).unwrap();
 
         gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE as i32);
         gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
         gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR as i32);
         gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR as i32);
 
-        //gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
 
         texture
+    }
+
+    pub fn create_alpha(gl: &GL, src: &str) -> WebGlTexture{
+        use wasm_bindgen::{closure::Closure, JsCast}; 
+        
+        let texture = gl.create_texture().unwrap();
+        gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+
+        let image = HtmlImageElement::new().unwrap();
+        image.set_src(src);
+        super::super::super::log(&image.current_src());
+
+        //Event handler for when the image is loaded
+        let gl_c = gl.clone();
+        let texture_c = texture.clone();
+        let image_c = image.clone();
+        let listener: Closure<dyn Fn()> = Closure::wrap(Box::new(move ||{
+                //image_on_load(&gl_c, &texture_c, &image_c);
+                gl_c.bind_texture(GL::TEXTURE_2D, Some(&texture_c));
+                gl_c.tex_image_2d_with_u32_and_u32_and_image(
+                    GL::TEXTURE_2D,         //target
+                    0,                      //level
+                    GL::RGBA as i32,          //internal format
+                    GL::RGBA,                 //source format
+                    GL::UNSIGNED_BYTE,      //source type
+                    &image_c                //image
+                ).unwrap();    
+
+                const IS_POWER_OF_TWO: fn(i32) -> bool = |x: i32| -> bool {
+                    x & x-1 == 0
+                };
+                if IS_POWER_OF_TWO(image_c.width() as i32) && IS_POWER_OF_TWO(image_c.height() as i32){
+                    gl_c.generate_mipmap(GL::TEXTURE_2D);
+                }
+                else{
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE as i32);
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST as i32);
+                    gl_c.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
+                }
+        }));
+        image.set_onload(Some(listener.as_ref().unchecked_ref()));
+        listener.forget();
+
+        //Pixel to be used while loading
+        const WIDTH: i32 = 1;
+        const HEIGHT: i32 = 1;
+        const SRC_FORMAT: u32 =  GL::RGBA;
+        const SRC_TYPE: u32 = GL::UNSIGNED_BYTE;
+        let mut pixel: [u8; 4] = [0, 0, 255, 255];
+        gl.read_pixels_with_opt_u8_array(0, 0, WIDTH, HEIGHT, SRC_FORMAT, SRC_TYPE, Some(&mut pixel)).unwrap();
+
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR as i32);
+
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
+
+        texture
+    }
+
+    pub fn create_texture_from_u8<const S: usize>(gl: &GL, gradient: &mut [u8; S]) -> WebGlTexture{
+        
+        let texture = gl.create_texture().unwrap();
+        gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+        gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(GL::TEXTURE_2D, 0, GL::RGBA as i32, 256, 1, 0, GL::RGBA, GL::UNSIGNED_BYTE, Some(gradient)).unwrap();
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR as i32);
+        gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::MIRRORED_REPEAT as i32);
+
+        texture
+    }
+
+    pub fn create_gradient(alpha: u8) -> [[u8; 4]; 256]{
+        let mut gradient = [[0; 4]; 256];
+        for i in 0..256{
+            match i {
+                0 => gradient[0] = [200, 200, 200, 255],
+                1..=127 => gradient[i] = [i as u8*2, i as u8*2, 255, alpha],
+                128 => gradient[128] = [255; 4],
+                _ => gradient[i] = [255, 255-(i as u8-128u8)*2+1, 255-(i as u8-128u8)*2+1, alpha]
+            }
+        }
+        gradient
     }
 
     

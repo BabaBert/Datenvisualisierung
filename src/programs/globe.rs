@@ -19,7 +19,6 @@ pub struct Globe<const T: usize> {
     pub texture_coord_buffer: WebGlBuffer,
     pub flipbook_coord_buffer: WebGlBuffer,
 
-
     pub index_count: i32,
 
     pub u_projection_matrix: WebGlUniformLocation,
@@ -28,7 +27,7 @@ pub struct Globe<const T: usize> {
     pub textures: [WebGlTexture; T],
 }
 
-impl Globe<2> {
+impl Globe<3> {
     pub fn new(gl: &WebGlRenderingContext) -> Self {
         use geomertry_generator::*;
         use super::common_funcs::textures::*;
@@ -53,9 +52,13 @@ impl Globe<2> {
         //generate arrays for sphere
         let mesh = globe.gen_mesh::<VERTICES_S, INDICES_S>();
         let uv_map = globe.gen_uv_map::<VERTICES_S>();
-        let flip_map = globe.flipbook_texture_map::<12, 142>(1, &uv_map);
-        let texture = create_texture(gl, DATA);
-        let texture2 = create_texture(gl, EARTH);
+        let flip_map = globe.flipbook_texture_map::<12, 142>(1690, &uv_map);
+
+        //create textures
+        let texture  = create_texture(gl, EARTH);
+        let texture2 = create_alpha(gl, DATA);
+        let gradient: &mut [u8; 4*256] = unsafe{std::mem::transmute(create_gradient(255).as_ptr())};
+        let gradient = create_texture_from_u8(gl, gradient);
 
         //Vertices Buffer
         let vertices_array: Float32Array = ArrayToJS::new(&mesh.0);
@@ -82,14 +85,15 @@ impl Globe<2> {
             u_projection_matrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
             u_samplers: 
             [gl.get_uniform_location(&program, "uTexture").unwrap(),
-             gl.get_uniform_location(&program, "uAlpha").unwrap()],
+             gl.get_uniform_location(&program, "uAlpha").unwrap(),
+             gl.get_uniform_location(&program, "uGradient").unwrap()],
             program: program,
             indices_buffer: indices_buffer,
             index_count: indices_array.length() as i32,
             position_buffer: position_buffer,
             texture_coord_buffer: tex_coord_buffer,
             flipbook_coord_buffer: flip_coord_buffer,
-            textures: [texture, texture2]
+            textures: [texture, texture2, gradient]
         }
         
     }
@@ -150,6 +154,7 @@ impl Globe<2> {
 
         super::common_funcs::textures::active_texture(gl, &self.textures[0], 0, &self.u_samplers[0]);
         super::common_funcs::textures::active_texture(gl, &self.textures[1], 1, &self.u_samplers[1]);
+        super::common_funcs::textures::active_texture(gl, &self.textures[2], 2, &self.u_samplers[2]);
 
         gl.draw_elements_with_i32(GL::TRIANGLES, self.index_count, GL::UNSIGNED_SHORT, 0);
     }
