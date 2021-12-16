@@ -1,4 +1,5 @@
 use super::{common_funcs::cf, common_funcs::{matrixes::*, vec_to_array::*}};
+use geomertry_generator::*;
 use web_sys::{
     WebGlRenderingContext as GL,
     *
@@ -11,13 +12,23 @@ const DATA: &str = "../../data/image/data.png";
 const FLIPBOOK: &str = "../../data/image/houdinisheet.jpg";
 const ALPHA: &str = "../../data/image/43dfa829f98aa1da4700f0c65ce0d10e.jpg";
 
+const SUBDIVIONS: usize = 4;
+const VERTICES: usize = size_v(SUBDIVIONS);
+const INDICES: usize = size_i(SUBDIVIONS);
+const VERTICES_S: usize = VERTICES * 3;
+const INDICES_S: usize = INDICES * 3;
+
+static mut last_time: f32 = 0.;
+static mut timestamp: usize = 0;
+
 //Modules
 pub struct Globe<const T: usize> {
     pub program: WebGlProgram,                      //Program pointer
     pub indices_buffer: WebGlBuffer,
     pub position_buffer: WebGlBuffer,
     pub texture_coord_buffer: WebGlBuffer,
-    pub flipbook_coord_buffer: WebGlBuffer,
+    //pub flipbook_coord_buffer: WebGlBuffer,
+    pub texture_coord_array: [[f32; 2]; VERTICES],
 
     pub index_count: i32,
 
@@ -29,7 +40,6 @@ pub struct Globe<const T: usize> {
 
 impl Globe<3> {
     pub fn new(gl: &WebGlRenderingContext) -> Self {
-        use geomertry_generator::*;
         use super::common_funcs::textures::*;
         use js_sys::*;
 
@@ -40,19 +50,13 @@ impl Globe<3> {
             &super::super::shaders::vertex::globe::SHADER,
             &super::super::shaders::fragment::globe2::SHADER,
         ).unwrap();
-
-        const SUBDIVIONS: usize = 4;
-        const VERTICES: usize = size_v(SUBDIVIONS);
-        const INDICES: usize = size_i(SUBDIVIONS);
-        const VERTICES_S: usize = VERTICES * 3;
-        const INDICES_S: usize = INDICES * 3;
         
         let globe: IcoSphere<VERTICES,  INDICES> = IcoSphere::new(1., SUBDIVIONS);
 
         //generate arrays for sphere
         let mesh = globe.gen_mesh::<VERTICES_S, INDICES_S>();
-        let uv_map = globe.gen_uv_map::<VERTICES_S>();
-        let flip_map = globe.flipbook_texture_map::<12, 142>(1690, &uv_map);
+        let raw_uv_map = globe.gen_uv_map::<VERTICES_S>();
+        //let flip_map = flipbook_texture_map::<12, 142, VERTICES>(1690, &raw_uv_map);
 
         //create textures
         let texture  = create_texture(gl, EARTH);
@@ -73,12 +77,12 @@ impl Globe<3> {
         gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &indices_array, GL::STATIC_DRAW);  
         
         //Texture Coordinates Buffer
-        let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(uv_map.as_ptr())};
+        let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(raw_uv_map.as_ptr())};
         let tex_coord_buffer = texture_coord_buffer(gl, uv_map);
 
         //Flipbook Coordinates Buffer
-        let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(flip_map.as_ptr())};
-        let flip_coord_buffer = texture_coord_buffer(gl, uv_map);
+        // let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(flip_map.as_ptr())};
+        // let flip_coord_buffer = texture_coord_buffer(gl, uv_map);
 
     
         Self {
@@ -92,7 +96,8 @@ impl Globe<3> {
             index_count: indices_array.length() as i32,
             position_buffer: position_buffer,
             texture_coord_buffer: tex_coord_buffer,
-            flipbook_coord_buffer: flip_coord_buffer,
+            //flipbook_coord_buffer: flip_coord_buffer,
+            texture_coord_array: raw_uv_map,
             textures: [texture, texture2, gradient]
         }
         
@@ -110,8 +115,11 @@ impl Globe<3> {
         canvas_width: f32,
         rotation_angle_x_axis: f32,
         rotation_angle_y_axis: f32,
+        time: f32,
         zoom: f32,
     ) {
+        use super::common_funcs::textures::*;
+
         //transformation(rotation) @common_funcs
         let projection_matrix = 
         get_3d_matrices(
@@ -145,18 +153,28 @@ impl Globe<3> {
         gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
         gl.enable_vertex_attrib_array(a_texture_coord as u32);
 
-        let a_texture_coord = gl.get_attrib_location(&self.program, "aFlipbookCoord");
-        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&self.flipbook_coord_buffer));
-        gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
-        gl.enable_vertex_attrib_array(a_texture_coord as u32);
-
-        gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&self.indices_buffer));
-
-        super::common_funcs::textures::active_texture(gl, &self.textures[0], 0, &self.u_samplers[0]);
-        super::common_funcs::textures::active_texture(gl, &self.textures[1], 1, &self.u_samplers[1]);
-        super::common_funcs::textures::active_texture(gl, &self.textures[2], 2, &self.u_samplers[2]);
-
-        gl.draw_elements_with_i32(GL::TRIANGLES, self.index_count, GL::UNSIGNED_SHORT, 0);
+        unsafe{
+            if time >= last_time + 1000. / 24. {
+                timestamp += 1;
+                last_time = time;
+            }
+        
+        
+            let flip_map = geomertry_generator::flipbook_texture_map::<12, 142, VERTICES>(timestamp, &self.texture_coord_array);
+            let uv_map: &[f32; 2*VERTICES] = std::mem::transmute(flip_map.as_ptr());
+            let a_texture_coord = gl.get_attrib_location(&self.program, "aFlipbookCoord");
+            gl.bind_buffer(GL::ARRAY_BUFFER, Some(&texture_coord_buffer(gl, uv_map)));
+            gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
+            gl.enable_vertex_attrib_array(a_texture_coord as u32);
+            
+            gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&self.indices_buffer));
+            
+            super::common_funcs::textures::active_texture(gl, &self.textures[0], 0, &self.u_samplers[0]);
+            super::common_funcs::textures::active_texture(gl, &self.textures[1], 1, &self.u_samplers[1]);
+            super::common_funcs::textures::active_texture(gl, &self.textures[2], 2, &self.u_samplers[2]);
+            
+            gl.draw_elements_with_i32(GL::TRIANGLES, self.index_count, GL::UNSIGNED_SHORT, 0);
+        }
     }
 
 }
@@ -262,22 +280,6 @@ mod geomertry_generator{
             self.vertices.map(closure)
         }
 
-        #[inline]
-        pub fn flipbook_texture_map<const X: usize, const Y: usize>(&self, t: usize, uv_map: &[[f32; 2]; V]) -> [[f32; 2]; V]{
-            let x = X as f32;
-            let y = Y as f32;
-
-            
-            let index = t % (X * Y);
-            let x_offset = (index % X) as f32 / x;
-            let y_offset = (index / X) as f32 / y;
-
-            let closure = |i: [f32; 2]| -> [f32; 2]{
-                [i[0] / x + x_offset, i[1] / y + y_offset]
-            };
-            uv_map.map(closure)
-        }
-
         pub fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]){
             use std::mem;
             let vertices: &[f32; VS] = unsafe {mem::transmute(self.vertices.as_ptr())};
@@ -285,6 +287,20 @@ mod geomertry_generator{
             (*vertices, *indices)
         }
 
+    }
+
+    #[inline]
+    pub fn flipbook_texture_map<const X: usize, const Y: usize, const S: usize>(t: usize, uv_map: &[[f32; 2]; S]) -> [[f32; 2]; S]{
+        let x = X as f32;
+        let y = Y as f32;
+        
+        let index = t % (X * Y);
+        let x_offset = (index % X) as f32 / x;
+        let y_offset = (index / X) as f32 / y;
+        let closure = |i: [f32; 2]| -> [f32; 2]{
+            [i[0] / x + x_offset, i[1] / y + y_offset]
+        };
+        uv_map.map(closure)
     }
 
     trait MidPointID{

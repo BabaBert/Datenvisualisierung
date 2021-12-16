@@ -20,7 +20,6 @@ rust.then(m => {
     }
     
     const FPS_THROTTLE = 1000.0 / 60.0; // milliseconds / frames
-    const VIDEO_FRAME_RATE = 1000. / 24.;
     const Client = new m.Client();
     const initialTime = Date.now();
     let lastDrawTime = -1;// In milliseconds
@@ -32,7 +31,7 @@ rust.then(m => {
     //TODO: bind PAUSE_EVENT, RESET_EVENT
 
 
-    function render() {
+    async function render() {
         window.requestAnimationFrame(render);
         const currTime = Date.now();
 
