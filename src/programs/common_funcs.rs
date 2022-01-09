@@ -9,24 +9,29 @@ pub mod cf{
         vert_source: &str,
         frag_source: &str,
     ) -> Result<WebGlProgram, String> {
+
         let program = gl
             .create_program()
             .ok_or_else(|| String::from("Error creating program"))?;
-    
-        let vert_shader = compile_shader(
-            &gl,
-            GL::VERTEX_SHADER,
-            vert_source,
-        ).unwrap();
-    
-        let frag_shader = compile_shader(
-            &gl,
-            GL::FRAGMENT_SHADER,
-            frag_source,
-        ).unwrap();
-    
-        gl.attach_shader(&program, &vert_shader);
-        gl.attach_shader(&program, &frag_shader);
+        
+        let gl_c = gl;
+        let program_c = program;
+
+        async {
+            //vertex
+            gl.attach_shader(&program_c, &compile_shader(
+                &gl_c,
+                GL::VERTEX_SHADER,
+                vert_source,
+            ).unwrap());
+            //fragment
+            gl.attach_shader(&program, &compile_shader(
+                &gl,
+                GL::FRAGMENT_SHADER,
+                frag_source,
+            ).unwrap());
+        };
+
         gl.link_program(&program);
     
         if gl.get_program_parameter(&program, WebGlRenderingContext::LINK_STATUS)
@@ -320,6 +325,12 @@ pub mod textures{
     };
     use js_sys::*;
 
+    pub trait Textures{
+
+        fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]);
+
+    }
+
     const TEXTURES: [u32; 32] = [
         GL::TEXTURE0,
         GL::TEXTURE1,
@@ -382,7 +393,6 @@ pub mod textures{
 
         let image = HtmlImageElement::new().unwrap();
         image.set_src(src);
-        super::super::super::log(&image.current_src());
 
         //Event handler for when the image is loaded
         let gl_c = gl.clone();
@@ -442,7 +452,6 @@ pub mod textures{
 
         let image = HtmlImageElement::new().unwrap();
         image.set_src(src);
-        super::super::super::log(&image.current_src());
 
         //Event handler for when the image is loaded
         let gl_c = gl.clone();
@@ -598,4 +607,175 @@ pub mod vec_to_array{
             ret
         }
     }
+}
+
+pub mod geomertry_generator{
+    // mostly coppied from https://github.com/Gonkee/Gepe3D/blob/main/Gepe3D/src/Physics/GeometryGenerator.cs
+
+    use std::collections::HashMap;
+    use super::normals::normalize;
+    use super::textures::Textures;
+
+    //indices for subdivided triangle
+    pub const fn size_i(x: usize) -> usize{
+        usize::pow(4, x as u32) * 20
+    }
+    //vertices for subdivided triangle
+    pub const fn size_v(x: usize) -> usize{
+        usize::pow(4, x as u32) * 10 + 2
+        //(usize::pow(2, x as u32) + usize::pow(2, (2*x) as u32) + 2)/2 * 12
+    }
+
+    pub struct IcoSphere<const V: usize, const I: usize>{
+        vertices: [[f32; 3]; V],    //Vec<Vector3 <f32>>,
+        indices:  [[u16; 3]; I],    //Vec<Vector3<u16>>,
+        radius: f32
+    }
+
+    impl Default for IcoSphere<12, 20>{
+        // initialized to the starting icosahedron
+        fn default() -> Self {
+            const SQRT_5:   f32 = 2.23606797749978;
+            const PHI:      f32 = (1. + SQRT_5) / 2.;
+
+            Self{
+                vertices:[
+                    [ -1., PHI,  0.], [  1., PHI,  0.], [ -1.,-PHI,  0.], [  1.,-PHI,  0.], 
+                    [  0., -1., PHI], [  0.,  1., PHI], [  0., -1.,-PHI], [  0.,  1.,-PHI],
+                    [ PHI,  0., -1.], [ PHI,  0.,  1.], [-PHI,  0., -1.], [-PHI,  0.,  1.]
+                ],
+                indices:[
+                    [ 0, 11,  5], [0,  5,  1], [0,  1,  7], [ 0,  7, 10],
+                    [ 0, 10, 11], [1,  5,  9], [5, 11,  4], [11, 10,  2],
+                    [10,  7,  6], [7,  1,  8], [3,  9,  4], [ 3,  4,  2],
+                    [ 3,  2,  6], [3,  6,  8], [3,  8,  9], [ 4,  9,  5],
+                    [ 2,  4, 11], [6,  2, 10], [8,  6,  7], [ 9,  8,  1]
+                ],
+                radius: 1.
+            }
+        }
+    }
+
+    impl<const V: usize, const I: usize> IcoSphere<V, I>{
+
+
+        //TODO: check
+        pub fn new(radius: f32, subdivisions: usize) -> Self{   
+            const X: usize = 0;
+            const Y: usize = 1;
+            const Z: usize = 2;
+
+            let base = IcoSphere::default();
+            let mut existing_mid_points = HashMap::<u32, u16>::new();
+            let mut vertices = base.vertices.map(normalize).to_vec();
+            let mut indices = base.indices.to_vec();
+
+            for _ in 0..subdivisions {
+
+                // every iteration makes a new list of triangles
+                let mut new_indices: Vec<[u16; 3]> = Vec::new();
+
+                for i in 0..indices.len(){
+                    let a = existing_mid_points.gen_mid_point_id(&mut vertices, indices[i][X], indices[i][Y]);
+                    let b = existing_mid_points.gen_mid_point_id(&mut vertices, indices[i][Y], indices[i][Z]);
+                    let c = existing_mid_points.gen_mid_point_id(&mut vertices, indices[i][Z], indices[i][X]);
+
+                    // replace triangle with 4 new triangles
+                    new_indices.push([indices[i][X], a, c]);
+                    new_indices.push([indices[i][Y], b, a]);
+                    new_indices.push([indices[i][Z], c, b]);
+                    new_indices.push([            a, b, c]);
+                }
+                indices = new_indices;
+            }
+
+            let vertices_array: [[f32; 3]; V] = vertices.try_into().unwrap();
+            Self{
+                vertices: vertices_array.map(|x|{x.map(|x|{x * radius})}),  
+                indices:  indices.try_into().unwrap(),
+                radius: radius  
+            }
+        }
+
+        #[inline]
+        pub fn gen_uv_map<const N: usize>(&self) -> [[f32; 2]; V]{
+            let closure = |i: [f32; 3]| -> [f32; 2]{
+                let normalized: [f32; 3] = i.map(|x|{x/self.radius});
+                let u: f32 = f32::atan2(normalized[0], normalized[2]) / (std::f32::consts::PI * 2.) + 0.5;
+                let v: f32 = (f32::asin(-normalized[1]) / std::f32::consts::PI) + 0.5;
+                [u, v]
+            };
+            self.vertices.map(closure)
+        }
+
+        pub fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]){
+            use std::mem;
+            let vertices: &[f32; VS] = unsafe {mem::transmute(self.vertices.as_ptr())};
+            let indices: &[u16; IS] = unsafe {mem::transmute(self.indices.as_ptr())};
+            (*vertices, *indices)
+        }
+
+    }
+
+    #[inline]
+    pub fn flipbook_texture_map<const X: usize, const Y: usize, const S: usize>(t: usize, uv_map: &[[f32; 2]; S]) -> [[f32; 2]; S]{
+        let x = X as f32;
+        let y = Y as f32;
+        
+        let index = t % (X * Y);
+        let x_offset = (index % X) as f32 / x;
+        let y_offset = (index / X) as f32 / y;
+        let closure = |i: [f32; 2]| -> [f32; 2]{
+            [i[0] / x + x_offset, i[1] / y + y_offset]
+        };
+        uv_map.map(closure)
+    }
+
+    trait MidPointID{
+        fn gen_mid_point_id(&mut self, vertices: &mut Vec<[f32; 3]>, v1: u16, v2: u16) -> u16;
+    }
+
+    impl MidPointID for HashMap<u32, u16>{
+
+        fn gen_mid_point_id(&mut self, vertices: &mut Vec<[f32; 3]>, v1: u16, v2: u16) -> u16{
+            use nalgebra::{min, max};
+
+            // check if midpoint has already been generated by another triangle
+            let unique_combination: u32 = ((min(v1, v2) as u32) << 16) + max(v1, v2) as u32;
+            
+            match self.contains_key(&unique_combination) {
+                true => *self.get(&unique_combination).unwrap(),
+                false => {
+                    let mid_point: [f32; 3] = normalize([
+                        vertices[v1 as usize][0] + vertices[v2 as usize][0],
+                        vertices[v1 as usize][1] + vertices[v2 as usize][1],
+                        vertices[v1 as usize][2] + vertices[v2 as usize][2]
+                    ].map(|x|{x/2.}));
+                    let id: u16 = vertices.len() as u16;
+                    self.insert(unique_combination, id);
+                    vertices.insert(vertices.len(), mid_point);
+                    id
+                }
+            }
+        }
+    }
+
+    struct UVSphere<const V: usize, const I: usize>{
+        vertices: [f32; (U*V)]
+        
+        radius: f32
+        
+    }
+
+    impl<const U: usize, const V: usize> Textures for UVSphere<U, V>{
+        fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]){
+            use std::mem;
+
+
+            let vertices: &[f32; VS] = unsafe {mem::transmute(self.vertices.as_ptr())};
+            let indices: &[u16; IS] = unsafe {mem::transmute(self.indices.as_ptr())};
+            (*vertices, *indices)
+        }
+    }
+
 }

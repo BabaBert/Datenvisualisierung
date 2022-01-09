@@ -26,5 +26,9 @@ module.exports = (env, args) => {
                 TextEncoder: ['text-encoding', 'TextEncoder']
             })
         ]
+        // experiments:{
+        //     //asyncWebAssembly: true,
+        //     syncWebAssembly: true
+        // }
     };
 }

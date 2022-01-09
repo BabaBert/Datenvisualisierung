@@ -105,7 +105,7 @@ pub fn update_mouse_position(x: f32, y: f32) {
     *data = Arc::new(AppState {
         mouse_x: x,
         mouse_y: inverted_y,
-        rotation_x_axis: f32::max(f32::min(data.rotation_x_axis + rotation_x_delta, 1.), -1.),  //globe can only be roated 90° upwards or downwards
+        rotation_x_axis: f32::max(f32::min(data.rotation_x_axis + rotation_x_delta, 1.5), -1.5),  //globe can only be roated 90° upwards or downwards
         rotation_y_axis: data.rotation_y_axis - rotation_y_delta,
         ..*data.clone()
     });

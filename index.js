@@ -31,7 +31,7 @@ rust.then(m => {
     //TODO: bind PAUSE_EVENT, RESET_EVENT
 
 
-    async function render() {
+    function render() {
         window.requestAnimationFrame(render);
         const currTime = Date.now();
 
