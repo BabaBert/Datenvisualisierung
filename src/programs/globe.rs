@@ -39,7 +39,7 @@ pub struct Globe<const T: usize> {
 }
 
 impl Globe<3> {
-    pub fn new(gl: &WebGlRenderingContext) -> Self {
+    pub async fn new(gl: &WebGlRenderingContext) -> Self {
         use super::common_funcs::textures::*;
         use js_sys::*;
 
@@ -49,7 +49,7 @@ impl Globe<3> {
             &gl,
             &super::super::shaders::vertex::globe::SHADER,
             &super::super::shaders::fragment::globe2::SHADER,
-        ).unwrap();
+        ).await.unwrap();
         
         let globe: IcoSphere<VERTICES,  INDICES> = IcoSphere::new(1., SUBDIVIONS);
 
