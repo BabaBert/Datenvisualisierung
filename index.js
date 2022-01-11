@@ -13,14 +13,14 @@ const gl = canvas.getContext("webgl", { antialias: true });
 
 
 
-rust.then(async function(m){
+rust.then(function(m){
     if (!gl) {
         alert('Failed to initialize WebGL');
         return;
     }
     
     const FPS_THROTTLE = 1000.0 / 60.0; // milliseconds / frames
-    const Client = await new m.Client();
+    const Client = new m.Client();
     const initialTime = Date.now();
     let lastDrawTime = -1;// In milliseconds
 

@@ -4,7 +4,7 @@ pub mod cf{
         WebGlRenderingContext as GL,
     };
 
-    pub async fn link_program(
+    pub fn link_program(
         gl: &WebGlRenderingContext,
         vert_source: &str,
         frag_source: &str,
