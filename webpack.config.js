@@ -1,3 +1,5 @@
+devtool: 'eval-source-map'
+
 const webpack = require('webpack');
 const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
@@ -24,5 +26,9 @@ module.exports = (env, args) => {
                 TextEncoder: ['text-encoding', 'TextEncoder']
             })
         ]
+        // experiments:{
+        //     //asyncWebAssembly: true,
+        //     syncWebAssembly: true
+        // }
     };
 }
