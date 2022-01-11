@@ -4,7 +4,7 @@ pub mod cf{
         WebGlRenderingContext as GL,
     };
 
-    pub fn link_program(
+    pub async fn link_program(
         gl: &WebGlRenderingContext,
         vert_source: &str,
         frag_source: &str,
@@ -14,23 +14,24 @@ pub mod cf{
             .create_program()
             .ok_or_else(|| String::from("Error creating program"))?;
         
-        let gl_c = gl;
-        let program_c = program;
 
-        async {
             //vertex
-            gl.attach_shader(&program_c, &compile_shader(
-                &gl_c,
+        let fut1 = async{
+            gl.attach_shader(&program, &compile_shader(
+                &gl,
                 GL::VERTEX_SHADER,
                 vert_source,
             ).unwrap());
-            //fragment
+        };
+        //fragment
+        let fut2 = async{
             gl.attach_shader(&program, &compile_shader(
                 &gl,
                 GL::FRAGMENT_SHADER,
                 frag_source,
             ).unwrap());
         };
+        futures::join!(fut1, fut2);
 
         gl.link_program(&program);
     
@@ -760,22 +761,22 @@ pub mod geomertry_generator{
         }
     }
 
-    struct UVSphere<const V: usize, const I: usize>{
-        vertices: [f32; (U*V)]
+    // struct UVSphere<const V: usize, const I: usize>{
+    //     vertices: [f32; (U*V)]
         
-        radius: f32
+    //     radius: f32
         
-    }
+    // }
 
-    impl<const U: usize, const V: usize> Textures for UVSphere<U, V>{
-        fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]){
-            use std::mem;
+    // impl<const U: usize, const V: usize> Textures for UVSphere<U, V>{
+    //     fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]){
+    //         use std::mem;
 
 
-            let vertices: &[f32; VS] = unsafe {mem::transmute(self.vertices.as_ptr())};
-            let indices: &[u16; IS] = unsafe {mem::transmute(self.indices.as_ptr())};
-            (*vertices, *indices)
-        }
-    }
+    //         let vertices: &[f32; VS] = unsafe {mem::transmute(self.vertices.as_ptr())};
+    //         let indices: &[u16; IS] = unsafe {mem::transmute(self.indices.as_ptr())};
+    //         (*vertices, *indices)
+    //     }
+    // }
 
 }

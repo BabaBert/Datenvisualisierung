@@ -39,7 +39,7 @@ pub struct Globe<const T: usize> {
 }
 
 impl Globe<3> {
-    pub fn new(gl: &WebGlRenderingContext) -> Self {
+    pub async fn new(gl: &WebGlRenderingContext) -> Self {
         use super::common_funcs::textures::*;
         use js_sys::*;
 
@@ -49,7 +49,7 @@ impl Globe<3> {
             &gl,
             &super::super::shaders::vertex::globe::SHADER,
             &super::super::shaders::fragment::globe2::SHADER,
-        ).unwrap();
+        ).await.unwrap();
         
         let globe: IcoSphere<VERTICES,  INDICES> = IcoSphere::new(1., SUBDIVIONS);
 
@@ -160,7 +160,7 @@ impl Globe<3> {
             }
         
         
-            let flip_map = geomertry_generator::flipbook_texture_map::<12, 142, VERTICES>(timestamp, &self.texture_coord_array);
+            let flip_map = super::common_funcs::geomertry_generator::flipbook_texture_map::<12, 142, VERTICES>(timestamp, &self.texture_coord_array);
             let uv_map: &[f32; 2*VERTICES] = std::mem::transmute(flip_map.as_ptr());
             let a_texture_coord = gl.get_attrib_location(&self.program, "aFlipbookCoord");
             gl.bind_buffer(GL::ARRAY_BUFFER, Some(&texture_coord_buffer(gl, uv_map)));

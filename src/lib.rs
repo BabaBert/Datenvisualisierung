@@ -4,6 +4,13 @@ use web_sys::{
     *,
     WebGlRenderingContext as GL
 };
+use js_sys::Promise;
+
+mod programs;
+mod shaders;
+mod app_state;
+mod constants;
+use wasm_bindgen_futures::*;
 
 mod gl_setup{
     use wasm_bindgen::{
@@ -189,12 +196,6 @@ mod gl_setup{
 
 #[macro_use] extern crate lazy_static;
 
-
-mod programs;
-mod shaders;
-mod app_state;
-mod constants;
-
 #[wasm_bindgen]
 extern "C"{
     #[wasm_bindgen(js_namespace = Date)]
@@ -243,16 +244,17 @@ pub struct Client {
 
 #[wasm_bindgen]
 impl Client{
+    
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
+    pub async fn new() -> Client{
 
-        console_error_panic_hook::set_once();
-        let gl = gl_setup::initialize_webgl_context().unwrap();
-        
-        Self{
-            program_globe: programs::Globe::new(&gl),
-            gl: gl,
-        }
+            console_error_panic_hook::set_once();
+            let gl = gl_setup::initialize_webgl_context().unwrap();
+            
+            Self{
+                program_globe: programs::Globe::new(&gl).await,
+                gl: gl,
+            }
     }
 
     pub fn update(&mut self, time: f32, height: f32, width: f32) -> Result<(), JsValue>{
