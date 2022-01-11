@@ -4,7 +4,7 @@ pub mod cf{
         WebGlRenderingContext as GL,
     };
 
-    pub async fn link_program(
+    pub fn link_program(
         gl: &WebGlRenderingContext,
         vert_source: &str,
         frag_source: &str,
@@ -15,23 +15,18 @@ pub mod cf{
             .ok_or_else(|| String::from("Error creating program"))?;
         
 
-            //vertex
-        let fut1 = async{
-            gl.attach_shader(&program, &compile_shader(
-                &gl,
-                GL::VERTEX_SHADER,
-                vert_source,
-            ).unwrap());
-        };
+        //vertex
+        gl.attach_shader(&program, &compile_shader(
+            &gl,
+            GL::VERTEX_SHADER,
+            vert_source,
+        ).unwrap());
         //fragment
-        let fut2 = async{
-            gl.attach_shader(&program, &compile_shader(
-                &gl,
-                GL::FRAGMENT_SHADER,
-                frag_source,
-            ).unwrap());
-        };
-        futures::join!(fut1, fut2);
+        gl.attach_shader(&program, &compile_shader(
+            &gl,
+            GL::FRAGMENT_SHADER,
+            frag_source,
+        ).unwrap());
 
         gl.link_program(&program);
     

@@ -188,15 +188,15 @@ pub struct Client {
 impl Client{
     
     #[wasm_bindgen(constructor)]
-    pub async fn new() -> Client{
+    pub fn new() -> Self{
 
-            console_error_panic_hook::set_once();
-            let gl = gl_setup::initialize_webgl_context().unwrap();
-            
-            Self{
-                program_globe: programs::Globe::new(&gl).await,
-                gl: gl,
-            }
+        console_error_panic_hook::set_once();
+        let gl = gl_setup::initialize_webgl_context().unwrap();
+
+                Self{
+                    program_globe: programs::Globe::new(&gl),
+                    gl: gl,
+                }.try_into().unwrap()
     }
 
     pub fn update(&mut self, time: f32, height: f32, width: f32) -> Result<(), JsValue>{
