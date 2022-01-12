@@ -196,7 +196,7 @@ impl Client{
                 Self{
                     program_globe: programs::Globe::new(&gl),
                     gl: gl,
-                }.try_into().unwrap()
+                }
     }
 
     pub fn update(&mut self, time: f32, height: f32, width: f32) -> Result<(), JsValue>{
