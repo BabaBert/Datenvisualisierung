@@ -2,8 +2,34 @@
 <html>
     <head>
         <link rel="icon" href="data:;base64,iVBORwOKGO=" /> <!--Makes the favicon nothing to prevent a consol error-->
+        <link rel="stylesheet" href="style.css">
     </head>
     <body style="background-color: black; margin: 0; overflow: hidden;">
         <canvas id="rustCanvas"></canvas>
+        <div id="infoText">
+            <h1>Globale Klimadaten</h1>
+            <p>In dieser Animation sehen Sie den weltweiten Datensatz zu monatlichen 
+                durchschnittlichen Temperaturanomalien aus dem Jahr 2011 visualisiert.<br><br>
+                Kältere Farben symbolisieren hierbei, dass diese Region zu dem Zeitpunkt kühler war
+                als sonst. Während wärmere Farben für das Gegenteil stehen.<br>
+                Je kräftiger die Farbe, umso höher ist auch die Anomalie.<br><br>
+                Der verwendete Datensatz wurde vom National Centers For Environmental Information erstellt.
+            </p>
+        </div>
+        <div class="controlElements">
+            <div id="playButton">
+                <button class="button1">
+                    <img src="playbutton.png"/> 
+                </button>
+            </div>
+            
+            <div id="pauseButton">
+                <button class="button2">
+                    <img src="pausebutton.png"/> 
+                </button>
+            </div>
+
+            <input type="range" min="0" max="12" value="0" id="slider">
+        </div>
     </body>
 </html>
