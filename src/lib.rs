@@ -4,145 +4,153 @@ use web_sys::{
     *,
     WebGlRenderingContext as GL
 };
-use js_sys::Promise;
+use wasm_bindgen::{
+    JsCast,
+    JsValue,
+};
+use std::sync::{
+    Arc,
+    RwLock
+};
+//use js_sys::Promise;
 
 mod programs;
 mod shaders;
 mod app_state;
 mod constants;
-use wasm_bindgen_futures::*;
-
-mod gl_setup{
-    use wasm_bindgen::{
-        JsCast,
-        JsValue,
-    };
-    use {
-        web_sys::*,
-        WebGlRenderingContext as GL
-    };
-    
-    pub fn initialize_webgl_context() -> Result<GL, JsValue>{
-        use event_listener::*;
-        use web_sys::*;
-    
-        let window = window().unwrap();
-        let document = window.document().unwrap();
-        let canvas = document.get_element_by_id("rustCanvas").unwrap();
-        let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
-        let gl: GL = canvas.get_context("webgl")?.unwrap().dyn_into()?;
-    
-    
-        attach_mouse_scroll_handler(&canvas)?;
-        attach_mouse_down_handler(&canvas)?;
-        attach_mouse_up_handler(&canvas)?;
-        attach_mouse_move_handler(&canvas)?;
-    
-    
-        gl.clear_color(0., 0.0, 0.0, 1.0); //RGBA
-        gl.clear_depth(1.);
-        gl.enable(GL::DEPTH_TEST);
-        gl.enable(GL::CULL_FACE);
-        gl.depth_func(GL::LESS); 
-    
-        Ok(gl)
-    }
-    
-    mod event_listener{
-        use wasm_bindgen::{
-            JsCast,
-            JsValue,
-            prelude::*,
-        };
-        use web_sys::*;
-    
-        pub fn attach_mouse_down_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-            let listener = move |event: web_sys::WheelEvent| {
-                //handler
-                super::super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, true);
-            };
-            //create listener on heap
-            let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-            canvas.add_event_listener_with_callback("mousedown", listener.as_ref().unchecked_ref())?;
-            //create memory leak on purpose
-            //listener is requiered for the duration of the program running
-            listener.forget();
-        
-            Ok(())
-        }
-        
-        pub fn attach_mouse_up_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-            let listener = move |event: web_sys::WheelEvent| {
-                //handler
-                super::super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, false);
-            };
-        
-            let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-            canvas.add_event_listener_with_callback("mouseup", listener.as_ref().unchecked_ref())?;
-            listener.forget();
-        
-            Ok(())
-        }
-        
-        pub fn attach_mouse_move_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-            let listener = move |event: web_sys::WheelEvent| {
-                super::super::app_state::update_mouse_position(event.client_x() as f32, event.client_y() as f32);
-            };
-        
-            let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-            canvas.add_event_listener_with_callback("mousemove", listener.as_ref().unchecked_ref())?;
-            listener.forget();
-        
-            Ok(())
-        }
-    
-        pub fn attach_mouse_scroll_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-            let listener = move |event: web_sys::WheelEvent| {
-                super::super::app_state::update_mouse_scroll(event.delta_y());
-            };
-    
-            let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-            canvas.add_event_listener_with_callback("mousewheel", listener.as_ref().unchecked_ref())?;
-            listener.forget();
-    
-            Ok(())
-        }
-    
-        pub fn attach_video_pause_handler(target: &EventTarget) -> Result<(), JsValue> {
-            let listener = move |custom_event: web_sys::CustomEvent| {
-                match custom_event.detail().as_bool().unwrap(){ 
-                    true => super::super::app_state::update_video_pause(true), 
-                    false => super::super::app_state::update_video_pause(false)
-                }
-            };
-    
-            let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-            target.add_event_listener_with_callback("pause", listener.as_ref().unchecked_ref())?;
-            listener.forget();
-            Ok(())
-        }
-    
-        pub fn attach_video_reset_handler(target: &EventTarget) -> Result<(), JsValue> {
-            let listener = move |_event: web_sys::Event| {
-                super::super::app_state::reset_video();
-            };
-    
-            let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-            target.add_event_listener_with_callback("pause", listener.as_ref().unchecked_ref())?;
-            listener.forget();
-            Ok(())
-        }
-        
-    }
-}
+//use wasm_bindgen_futures::*;
 
 #[macro_use] extern crate lazy_static;
 
-#[wasm_bindgen]
-extern "C"{
-    #[wasm_bindgen(js_namespace = Date)]
-    fn now() -> f32;
+
+mod event_listener{
+    use wasm_bindgen::{
+        JsCast,
+        JsValue,
+        prelude::*,
+    };
+    use web_sys::*;
+
+    pub fn attach_mouse_down_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
+        let listener = move |event: web_sys::WheelEvent| {
+            //handler
+            super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, true);
+        };
+        //create listener on heap
+        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("mousedown", listener.as_ref().unchecked_ref())?;
+        //create memory leak on purpose
+        //listener is requiered for the duration of the program running
+        listener.forget();
+    
+        Ok(())
+    }
+    
+    pub fn attach_mouse_up_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
+        let listener = move |event: web_sys::WheelEvent| {
+            //handler
+            super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, false);
+        };
+    
+        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("mouseup", listener.as_ref().unchecked_ref())?;
+        listener.forget();
+    
+        Ok(())
+    }
+    
+    pub fn attach_mouse_move_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
+        let listener = move |event: web_sys::WheelEvent| {
+            super::app_state::update_mouse_position(event.client_x() as f32, event.client_y() as f32);
+        };
+    
+        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("mousemove", listener.as_ref().unchecked_ref())?;
+        listener.forget();
+    
+        Ok(())
+    }
+
+    pub fn attach_mouse_scroll_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
+        let listener = move |event: web_sys::WheelEvent| {
+            super::app_state::update_mouse_scroll(event.delta_y());
+        };
+
+        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("mousewheel", listener.as_ref().unchecked_ref())?;
+        listener.forget();
+
+        Ok(())
+    }
+
+    pub fn attach_video_pause_handler(target: &EventTarget) -> Result<(), JsValue> {
+        let listener = move |custom_event: web_sys::CustomEvent| {
+            match custom_event.detail().as_bool().unwrap(){ 
+                true    => super::app_state::update_video_pause(true), 
+                false   => super::app_state::update_video_pause(false)
+            }
+        };
+
+        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
+        target.add_event_listener_with_callback("pause", listener.as_ref().unchecked_ref())?;
+        listener.forget();
+        Ok(())
+    }
+
+    pub fn attach_video_reset_handler(target: &EventTarget) -> Result<(), JsValue> {
+        let listener = move |_event: web_sys::Event| {
+            super::app_state::reset_video();
+        };
+
+        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
+        target.add_event_listener_with_callback("pause", listener.as_ref().unchecked_ref())?;
+        listener.forget();
+        Ok(())
+    }
+    
 }
+
+pub fn initialize_webgl_context() -> Result<GL, JsValue>{
+    use event_listener::*;
+    use web_sys::*;
+
+    let window = window().unwrap();
+    let document = window.document().unwrap();
+    let canvas = document.get_element_by_id("rustCanvas").unwrap();
+    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+    let gl: GL = canvas.get_context("webgl")?.unwrap().dyn_into()?;
+
+    attach_mouse_scroll_handler(&canvas)?;
+    attach_mouse_down_handler(&canvas)?;
+    attach_mouse_up_handler(&canvas)?;
+    attach_mouse_move_handler(&canvas)?;
+
+
+    gl.clear_color(0., 0.0, 0.0, 1.0); //RGBA
+    gl.clear_depth(1.);
+    gl.enable(GL::DEPTH_TEST);
+    gl.enable(GL::CULL_FACE);
+    gl.depth_func(GL::LESS); 
+
+    Ok(gl)
+}
+
+lazy_static!{
+    static ref GL: Arc<RwLock<GL>> = Arc::new(RwLock::new(initialize_webgl_context().unwrap()));
+}
+
+mod client{
+    use web_sys::WebGlRenderingContext as GL;
+    use std::sync::{
+        Arc,    //creates mutable *references* to the data
+        Mutex   //creates a lock around data so only one owner can access it at a time
+    };
+
+    static gl: Arc<Mutex<GL>> = Arc::new(Mutex::new(
+        super::initialize_webgl_context().unwrap()
+    ));
+}
+
 
 
 #[wasm_bindgen]
@@ -177,6 +185,8 @@ impl CustomEvents{
 }
 
 
+
+
 //all the data that is stored on the user client, i.e. the browser
 #[wasm_bindgen]
 pub struct Client {
@@ -191,7 +201,7 @@ impl Client{
     pub fn new() -> Self{
 
         console_error_panic_hook::set_once();
-        let gl = gl_setup::initialize_webgl_context().unwrap();
+        let gl = initialize_webgl_context().unwrap();
 
                 Self{
                     program_globe: programs::Globe::new(&gl),

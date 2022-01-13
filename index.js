@@ -1,5 +1,13 @@
 const rust = import('./pkg/wasm_boilerplate');
 const canvas = document.getElementById('rustCanvas');
+
+const control_bar       = document.getElementById('control_bar');
+const play_pause_reset  = document.getElementById('play_pause_reset');
+const left              = document.getElementById('left');
+const right             = document.getElementById('right');
+const zoom_in           = document.getElementById('zoom_in');
+const zoom_out          = document.getElementById('zoom_out');
+
 const gl = canvas.getContext("webgl", { antialias: true });
 
 // //TODO: trigger when the video is being paused or resumed playing
