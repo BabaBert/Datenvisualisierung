@@ -5,5 +5,38 @@
     </head>
     <body style="background-color: black; margin: 0; overflow: hidden;">
         <canvas id="rustCanvas"></canvas>
+        <div id="infoText">
+            <h1>Globale Klimadaten</h1>
+            <p>In dieser Animation sehen Sie den weltweiten Datensatz zu monatlichen 
+                durchschnittlichen Temperaturanomalien aus dem Jahr 2011 visualisiert.<br><br>
+                Kältere Farben symbolisieren hierbei, dass diese Region zu dem Zeitpunkt kühler war
+                als sonst. Während wärmere Farben für das Gegenteil stehen.<br>
+                Je kräftiger die Farbe, umso höher ist auch die Anomalie.<br><br>
+                Der verwendete Datensatz wurde vom National Centers For Environmental Information erstellt.
+            </p>
+        </div>
+        <div id="control_bar">
+            <button id="left">
+                <svg src="data/control_elements/play.svg"/></svg>
+            </button>
+
+            <button id="play_pause_reset">
+                <svg src="data/control_elements/play.svg"/></svg>
+            </button>
+            
+            <button id="right" >
+                <svg src="data/control_elements/pause.svg"/></svg>
+            </button>
+
+            <button id="zoom_in">
+                <svg src="data/control_elements/play.svg"/></svg>
+            </button>
+
+            <button id="zoom_out">
+                <svg src="data/control_elements/play.svg"/></svg>
+            </button>
+
+            <input type="range" min="0" max="12" value="0" id="slider">
+        </div>
     </body>
 </html>
