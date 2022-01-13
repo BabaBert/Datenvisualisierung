@@ -4,4 +4,3 @@ dist
 pkg
 package-lock.json
 Cargo.lock
-data/geo
