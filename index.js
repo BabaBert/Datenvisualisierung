@@ -1,12 +1,12 @@
 const rust = import('./pkg/wasm_boilerplate');
-const canvas = document.getElementById('rustCanvas');
 
+const canvas            = document.getElementById('rustCanvas');
 const control_bar       = document.getElementById('control_bar');
-const play_pause_reset  = document.getElementById('play_pause_reset');
-const left              = document.getElementById('left');
-const right             = document.getElementById('right');
-const zoom_in           = document.getElementById('zoom_in');
-const zoom_out          = document.getElementById('zoom_out');
+// const play_pause_reset  = document.getElementById('play_pause_reset');
+// const left              = document.getElementById('left');
+// const right             = document.getElementById('right');
+// const zoom_in           = document.getElementById('zoom_in');
+// const zoom_out          = document.getElementById('zoom_out');
 
 const gl = canvas.getContext("webgl", { antialias: true });
 
@@ -47,13 +47,18 @@ rust.then(function(m){
             lastDrawTime = currTime;
 
             if (window.innerHeight !== canvas.height || window.innerWidth !== canvas.width) {
-                canvas.height = window.innerHeight;
+                canvas.height       = window.innerHeight;
                 canvas.clientHeight = window.innerHeight;
                 canvas.style.height = window.innerHeight;
 
-                canvas.width = window.innerWidth;
-                canvas.clientWidth = window.innerWidth;
-                canvas.style.width = window.innerWidth;
+                canvas.width        = window.innerWidth;
+                canvas.clientWidth  = window.innerWidth;
+                canvas.style.width  = window.innerWidth;
+
+                control_bar.width        = window.innerWidth;
+                control_bar.clientWidth  = window.innerWidth;
+                control_bar.style.width  = window.innerWidth;
+
 
                 gl.viewport(0, 0, window.innerWidth, window.innerHeight);
             }

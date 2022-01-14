@@ -1,0 +1,6 @@
+
+.control_bar{
+    position: absolute;
+    transform: translateY(80%);
+    height: 200px;
+}
