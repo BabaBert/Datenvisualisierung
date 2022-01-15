@@ -135,23 +135,6 @@ pub fn initialize_webgl_context() -> Result<GL, JsValue>{
     Ok(gl)
 }
 
-lazy_static!{
-    static ref GL: Arc<RwLock<GL>> = Arc::new(RwLock::new(initialize_webgl_context().unwrap()));
-}
-
-mod client{
-    use web_sys::WebGlRenderingContext as GL;
-    use std::sync::{
-        Arc,    //creates mutable *references* to the data
-        Mutex   //creates a lock around data so only one owner can access it at a time
-    };
-
-    static gl: Arc<Mutex<GL>> = Arc::new(Mutex::new(
-        super::initialize_webgl_context().unwrap()
-    ));
-}
-
-
 
 #[wasm_bindgen]
 extern "C"{
