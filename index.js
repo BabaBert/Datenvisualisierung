@@ -33,12 +33,6 @@ rust.then(function(m){
     const initialTime = Date.now();
     let lastDrawTime = -1;// In milliseconds
 
-    const CUSTOM_EVENTS = new m.CustomEvents();
-    //const PAUSE_EVENT = CUSTOM_EVENTS.get_pause();
-    //const RESET_EVENT = CUSTOM_EVENTS.get_reset();
-
-    //TODO: bind PAUSE_EVENT, RESET_EVENT
-
 
     function render() {
         window.requestAnimationFrame(render);
