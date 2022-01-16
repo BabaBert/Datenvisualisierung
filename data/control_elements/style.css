@@ -66,3 +66,12 @@
 #temperaturLegende p{
     text-align: right;
 }
+
+#yearDisplayer{
+    position:absolute;
+    right: 3%;
+    font-family: sans-serif;
+}
+
+
+
