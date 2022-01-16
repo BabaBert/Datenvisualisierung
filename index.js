@@ -78,4 +78,5 @@ rust.then(function(m){
     }
 
     render();
+    m.t_loop()
 });

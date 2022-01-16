@@ -9,7 +9,7 @@ use wasm_bindgen::{
     JsValue,
 };
 use std::sync::mpsc::{Sender, Receiver};
-use std::sync::mpsc;
+use std::sync::mpsc; 
 use std::sync::Mutex;
 
 //use js_sys::Promise;
@@ -35,6 +35,7 @@ mod app_state{
     //severeal readonly references to the app_state
     lazy_static! {
         pub static ref APP_STATE: Mutex<Arc<AppState>> = Mutex::new(Arc::new(AppState::new()));
+        pub static ref INTERFACE: Mutex<Interface> = Mutex::new(Interface::new());
     }
 
     pub fn update_dynamic_data(time: f32, canvas_height: f32, canvas_width: f32) {  //canvas size is stored every time -> can be optimized
@@ -79,6 +80,7 @@ mod app_state{
         pub rotation_x_axis: f32,
         pub rotation_y_axis: f32,
         pub time: f32,
+        pub last: f64,
         pub timestamp: usize,
         pub pause: bool,
     }
@@ -99,16 +101,28 @@ mod app_state{
                 rotation_x_axis: 0.,        //angle
                 rotation_y_axis: 0.,
                 time: 0.,
+                last: js_sys::Date::now(),
                 timestamp: 0,
                 pause: true
             }
         }
     }
 
-    // pub struct interface{
-    //     pause: bool,
-    //     timestamp: usize,
-    // }
+    pub struct Interface{
+        pub pause: bool,
+        pub timestamp: usize,
+        pub last: f64,
+    }
+
+    impl Interface{
+        fn new() -> Self {
+            Self{
+                pause: true,
+                timestamp: 0,
+                last: js_sys::Date::now()
+            }
+        }
+    }
 
     //grabs only the requiered information form AppState through the Arc-Mutex pattern
     pub fn update_mouse_down(x: f32, y: f32, is_down: bool) {
@@ -296,55 +310,15 @@ mod event_listener{
     }
 
     pub fn attach_video_pause_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
-        use wasm_bindgen_futures::spawn_local;
-        use js_sys::Date;
-        use std::sync::mpsc::{Sender, Receiver};
-        // use std::sync
 
-        let (s, r) = std::sync::mpsc::channel::<bool>();
-
-        // let r = Mutex::new(r);
-
-        // let fut = async move{
-        //     loop{
-        //         if r.recv().unwrap(){
-        //             super::log("true");
-        //         }
-        //     }
-        // };
-        // spawn_local(fut);
-
-        let on_load = Closure::wrap(Box::new(move ||{
-            // let mut last = Date::now();
-            loop{
-                if r.recv().unwrap() {
-                    super::log("true");
-                }  
-            }
-            
-        }) as Box <dyn Fn()>);
-        button.set_onload(Some(on_load.as_ref().unchecked_ref()));
-
-        let s_ = s.clone();
         let listener = move || {
-            let mut data = APP_STATE.lock().unwrap();
-            //let (s, r): (Sender<bool>, Receiver<bool>) = std::sync::mpsc::channel();
-
-            if data.pause {
+            if INTERFACE.lock().unwrap().pause {
                 super::log("play");
-                *data = Arc::new(AppState{
-                    pause: false,
-                    ..*data.clone()
-                });
-                s_.clone().send(true).unwrap();
+                INTERFACE.lock().unwrap().pause = false; 
             }
             else{
                 super::log("pause");
-                *data = Arc::new(AppState{
-                    pause: true,
-                    ..*data.clone()
-                });
-                s_.clone().send(false).unwrap();
+                INTERFACE.lock().unwrap().pause = true; 
             }
         };
 
@@ -367,10 +341,6 @@ mod event_listener{
     }
     
 }
-
-// lazy_static!{
-//     pub static ref sr: (Sender<bool>, Receiver<bool>) = mpsc::channel();
-// }
 
 pub fn init_webgl_context() -> Result<GL, JsValue>{
     use web_sys::*;
@@ -408,40 +378,6 @@ fn init_events() -> Result<(), JsValue>{
 
     Ok(())
 }
-
-
-
-
-// #[wasm_bindgen]
-// extern "C"{
-//     #[wasm_bindgen(js_namespace = console)]
-//     fn log(s: &str);
-// }
-
-
-// #[wasm_bindgen]
-// pub struct CustomEvents{
-//     e_video_pause: CustomEvent,
-//     e_video_reset: Event,
-// }
-
-// #[wasm_bindgen]
-// impl CustomEvents{
-//     #[wasm_bindgen(constructor)]
-//     pub fn new() -> Self{
-//         //TODO: detail for pause
-//         Self{
-//             e_video_pause: CustomEvent::new("video_pause").unwrap(),
-//             e_video_reset: Event::new("video_reset").unwrap(),
-//         }
-//     }
-//     pub fn get_pause(self) -> CustomEvent{
-//         self.e_video_pause
-//     }
-//     pub fn get_reset(self) -> Event{
-//         self.e_video_reset
-//     }
-// }
 
 //all the data that is stored on the user client, i.e. the browser
 #[wasm_bindgen]
@@ -486,7 +422,6 @@ impl Client{
             curr_state.canvas_width,
             curr_state.rotation_x_axis,
             curr_state.rotation_y_axis,
-            curr_state.timestamp,
             curr_state.mouse_scroll,
             //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
         );
