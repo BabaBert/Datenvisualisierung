@@ -9,12 +9,21 @@
         <div id="infoText">
             <h1>Globale Klimadaten</h1>
             <p>In dieser Animation sehen Sie den weltweiten Datensatz zu monatlichen 
-                durchschnittlichen Temperaturanomalien aus dem Jahr 2011 visualisiert.<br><br>
+                durchschnittlichen Temperaturanomalien visualisiert.<br><br>
                 Kältere Farben symbolisieren hierbei, dass diese Region zu dem Zeitpunkt kühler war
                 als sonst. Während wärmere Farben für das Gegenteil stehen.<br>
-                Je kräftiger die Farbe, umso höher ist auch die Anomalie.<br><br>
-                Der verwendete Datensatz wurde vom National Centers For Environmental Information erstellt.
+                Je kräftiger die Farbe, umso höher ist auch die Anomalie. Graue Bereiche bedeuten, dass
+                keine Daten vorliegen<br><br>
+                Der verwendete Datensatz wurde von den National Centers For Environmental Information erstellt.<br><br>
+                Dieses Projekt wurde entwickelt von Bartholomäus Baumberg, Bertold Brödner, Alexander Diel und 
+                Hayllen Estibaly Sanchez Momox.
             </p>
+        </div>
+        <div id="temperaturLegende">
+            <h1>Legende</h1>
+            <div id="temperaturAnzeigeOben"><p>+10 &#176; C</p></div>
+            <canvas id="temperaturCanvas" height="256" width="100"></canvas>
+            <div id="temperaturAnzeigeUnten"><p>-10 &#176; C</p></div>
         </div>
         <div class="control_bar" id="control_bar">
             <div class="control_bar" id="left">
@@ -46,4 +55,5 @@
 
         </div>
     </body>
+    <script type="text/javascript" src="canvas.js"></script>
 </html>
