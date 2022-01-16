@@ -8,10 +8,10 @@ use wasm_bindgen::{
     JsCast,
     JsValue,
 };
-use std::sync::{
-    Arc,
-    RwLock
-};
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc;
+use std::sync::Mutex;
+
 //use js_sys::Promise;
 
 mod programs;
@@ -21,6 +21,12 @@ mod constants;
 
 #[macro_use] extern crate lazy_static;
 
+#[wasm_bindgen]
+extern "C"{
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
 mod app_state{
     
     use std::sync::Arc;     //creates mutable *references* to the data
@@ -28,7 +34,7 @@ mod app_state{
 
     //severeal readonly references to the app_state
     lazy_static! {
-        static ref APP_STATE: Mutex<Arc<AppState>> = Mutex::new(Arc::new(AppState::new()));
+        pub static ref APP_STATE: Mutex<Arc<AppState>> = Mutex::new(Arc::new(AppState::new()));
     }
 
     pub fn update_dynamic_data(time: f32, canvas_height: f32, canvas_width: f32) {  //canvas size is stored every time -> can be optimized
@@ -98,6 +104,11 @@ mod app_state{
             }
         }
     }
+
+    // pub struct interface{
+    //     pause: bool,
+    //     timestamp: usize,
+    // }
 
     //grabs only the requiered information form AppState through the Arc-Mutex pattern
     pub fn update_mouse_down(x: f32, y: f32, is_down: bool) {
@@ -184,17 +195,28 @@ mod event_listener{
         prelude::*,
     };
     use web_sys::*;
+    use std::sync::Arc;
+    use super::app_state::*;
+    use std::sync::mpsc::{Sender, Receiver};
+
 
     pub fn attach_mouse_down_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
         let listener = move |event: web_sys::WheelEvent| {
             //handler
-            super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, true);
+            // super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, true);
+            let x = event.client_x() as f32;
+            let y = event.client_y() as f32;
+
+            let mut data = APP_STATE.lock().unwrap();
+            *data = Arc::new(AppState {
+                mouse_down: true,
+                mouse_x: x,
+                mouse_y: data.canvas_height - y,
+                ..*data.clone()
+            });
         };
-        //create listener on heap
         let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("mousedown", listener.as_ref().unchecked_ref())?;
-        //create memory leak on purpose
-        //listener is requiered for the duration of the program running
         listener.forget();
     
         Ok(())
@@ -203,9 +225,18 @@ mod event_listener{
     pub fn attach_mouse_up_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
         let listener = move |event: web_sys::WheelEvent| {
             //handler
-            super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, false);
+            // super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, false);
+            let x = event.client_x() as f32;
+            let y = event.client_y() as f32;
+
+            let mut data = APP_STATE.lock().unwrap();
+            *data = Arc::new(AppState {
+                mouse_down: false,
+                mouse_x: x,
+                mouse_y: data.canvas_height - y,
+                ..*data.clone()
+            });
         };
-    
         let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("mouseup", listener.as_ref().unchecked_ref())?;
         listener.forget();
@@ -215,9 +246,35 @@ mod event_listener{
     
     pub fn attach_mouse_move_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
         let listener = move |event: web_sys::WheelEvent| {
-            super::app_state::update_mouse_position(event.client_x() as f32, event.client_y() as f32);
+            // super::app_state::update_mouse_position(event.client_x() as f32, event.client_y() as f32);
+            use std::f32::*;
+            let x = event.client_x() as f32;
+            let y = event.client_y() as f32;
+
+
+            let mut data = APP_STATE.lock().unwrap();
+            let inverted_y = data.canvas_height - y;
+            let x_delta = x - data.mouse_x;
+            let y_delta = inverted_y - data.mouse_y;
+            let rotation_x_delta = if data.mouse_down {
+                consts::PI * y_delta / data.canvas_height
+            } else {
+                0.
+            };
+            let rotation_y_delta = if data.mouse_down {
+                consts::PI * x_delta / data.canvas_width
+            } else {
+                0.
+            };
+
+            *data = Arc::new(AppState {
+                mouse_x: x,
+                mouse_y: inverted_y,
+                rotation_x_axis: f32::max(f32::min(data.rotation_x_axis + rotation_x_delta, 1.5), -1.5),  //globe can only be roated 90° upwards or downwards
+                rotation_y_axis: data.rotation_y_axis - rotation_y_delta,
+                ..*data.clone()
+            });
         };
-    
         let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("mousemove", listener.as_ref().unchecked_ref())?;
         listener.forget();
@@ -225,6 +282,7 @@ mod event_listener{
         Ok(())
     }
 
+    //Todo:
     pub fn attach_mouse_scroll_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
         let listener = move |event: web_sys::WheelEvent| {
             super::app_state::update_mouse_scroll(event.delta_y());
@@ -237,13 +295,62 @@ mod event_listener{
         Ok(())
     }
 
-    pub fn attach_video_pause_handler(button: &EventTarget) -> Result<(), JsValue> {
-        let listener = move |event: web_sys::Event| {
+    pub fn attach_video_pause_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
+        use wasm_bindgen_futures::spawn_local;
+        use js_sys::Date;
+        use std::sync::mpsc::{Sender, Receiver};
+        // use std::sync
 
+        let (s, r) = std::sync::mpsc::channel::<bool>();
+
+        // let r = Mutex::new(r);
+
+        // let fut = async move{
+        //     loop{
+        //         if r.recv().unwrap(){
+        //             super::log("true");
+        //         }
+        //     }
+        // };
+        // spawn_local(fut);
+
+        let on_load = Closure::wrap(Box::new(move ||{
+            // let mut last = Date::now();
+            loop{
+                if r.recv().unwrap() {
+                    super::log("true");
+                }  
+            }
+            
+        }) as Box <dyn Fn()>);
+        button.set_onload(Some(on_load.as_ref().unchecked_ref()));
+
+        let s_ = s.clone();
+        let listener = move || {
+            let mut data = APP_STATE.lock().unwrap();
+            //let (s, r): (Sender<bool>, Receiver<bool>) = std::sync::mpsc::channel();
+
+            if data.pause {
+                super::log("play");
+                *data = Arc::new(AppState{
+                    pause: false,
+                    ..*data.clone()
+                });
+                s_.clone().send(true).unwrap();
+            }
+            else{
+                super::log("pause");
+                *data = Arc::new(AppState{
+                    pause: true,
+                    ..*data.clone()
+                });
+                s_.clone().send(false).unwrap();
+            }
         };
 
-        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-        button.add_event_listener_with_callback("pause", listener.as_ref().unchecked_ref())?;
+        let listener = Closure::wrap(Box::new(listener) as Box<dyn Fn()>);
+        button.set_onclick(Some(listener.as_ref().unchecked_ref()));
+        // button.add_event_listener_with_callback("pause", listener.as_ref().unchecked_ref())?;
         listener.forget();
         Ok(())
     }
@@ -261,8 +368,14 @@ mod event_listener{
     
 }
 
+// lazy_static!{
+//     pub static ref sr: (Sender<bool>, Receiver<bool>) = mpsc::channel();
+// }
+
 pub fn init_webgl_context() -> Result<GL, JsValue>{
     use web_sys::*;
+    use std::sync::mpsc::{Sender, Receiver};
+    use std::sync::mpsc;
 
     let window = window().unwrap();
     let document = window.document().unwrap();
@@ -280,7 +393,6 @@ pub fn init_webgl_context() -> Result<GL, JsValue>{
 }
 
 fn init_events() -> Result<(), JsValue>{
-    use event_listener::*;
 
     let window = window().unwrap();
     let document = window.document().unwrap();
@@ -288,11 +400,11 @@ fn init_events() -> Result<(), JsValue>{
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
     let play_btn = document.get_element_by_id("play_pause_reset").unwrap();
 
-    attach_mouse_scroll_handler(&canvas)?;
-    attach_mouse_down_handler(&canvas)?;
-    attach_mouse_up_handler(&canvas)?;
-    attach_mouse_move_handler(&canvas)?;
-    attach_video_pause_handler(&play_btn)?;
+    // Todo: attach_mouse_scroll_handler(&canvas)?;
+    event_listener::attach_mouse_down_handler(&canvas)?;
+    event_listener::attach_mouse_up_handler(&canvas)?;
+    event_listener::attach_mouse_move_handler(&canvas)?;
+    event_listener::attach_video_pause_handler(&play_btn.dyn_into().unwrap())?;
 
     Ok(())
 }
@@ -330,9 +442,6 @@ fn init_events() -> Result<(), JsValue>{
 //         self.e_video_reset
 //     }
 // }
-
-
-
 
 //all the data that is stored on the user client, i.e. the browser
 #[wasm_bindgen]
@@ -377,7 +486,7 @@ impl Client{
             curr_state.canvas_width,
             curr_state.rotation_x_axis,
             curr_state.rotation_y_axis,
-            curr_state.time,
+            curr_state.timestamp,
             curr_state.mouse_scroll,
             //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
         );

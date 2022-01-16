@@ -18,8 +18,8 @@ const INDICES: usize = size_i(SUBDIVIONS);
 const VERTICES_S: usize = VERTICES * 3;
 const INDICES_S: usize = INDICES * 3;
 
-static mut last_time: f32 = 0.;
-static mut timestamp: usize = 0;
+// static mut last_time: f32 = 0.;
+// static mut timestamp: usize = 0;
 
 //Modules
 pub struct Globe<const T: usize> {
@@ -115,7 +115,7 @@ impl Globe<3> {
         canvas_width: f32,
         rotation_angle_x_axis: f32,
         rotation_angle_y_axis: f32,
-        time: f32,
+        timestamp: usize,
         zoom: f32,
     ) {
         use super::common_funcs::textures::*;
@@ -153,28 +153,25 @@ impl Globe<3> {
         gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
         gl.enable_vertex_attrib_array(a_texture_coord as u32);
 
-        unsafe{
-            if time >= last_time + 1000. / 12. {
-                timestamp += 1;
-                last_time = time;
-            }
+        // unsafe{
+        //     if time >= last_time + 1000. / 12. {
+        //         timestamp += 1;
+        //         last_time = time;
+        //     }
         
         
-            let flip_map = super::common_funcs::geomertry_generator::flipbook_texture_map::<12, 142, VERTICES>(timestamp, &self.texture_coord_array);
-            let uv_map: &[f32; 2*VERTICES] = std::mem::transmute(flip_map.as_ptr());
-            let a_texture_coord = gl.get_attrib_location(&self.program, "aFlipbookCoord");
-            gl.bind_buffer(GL::ARRAY_BUFFER, Some(&texture_coord_buffer(gl, uv_map)));
-            gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
-            gl.enable_vertex_attrib_array(a_texture_coord as u32);
-
-            gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&self.indices_buffer));
-
-            super::common_funcs::textures::active_texture(gl, &self.textures[0], 0, &self.u_samplers[0]);
-            super::common_funcs::textures::active_texture(gl, &self.textures[1], 1, &self.u_samplers[1]);
-            super::common_funcs::textures::active_texture(gl, &self.textures[2], 2, &self.u_samplers[2]);
-
-            gl.draw_elements_with_i32(GL::TRIANGLES, self.index_count, GL::UNSIGNED_SHORT, 0);
-        }
+        let flip_map = super::common_funcs::geomertry_generator::flipbook_texture_map::<12, 142, VERTICES>(timestamp, &self.texture_coord_array);
+        let uv_map: &[f32; 2*VERTICES] = unsafe {std::mem::transmute(flip_map.as_ptr())};
+        let a_texture_coord = gl.get_attrib_location(&self.program, "aFlipbookCoord");
+        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&texture_coord_buffer(gl, uv_map)));
+        gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
+        gl.enable_vertex_attrib_array(a_texture_coord as u32);
+        gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&self.indices_buffer));
+        super::common_funcs::textures::active_texture(gl, &self.textures[0], 0, &self.u_samplers[0]);
+        super::common_funcs::textures::active_texture(gl, &self.textures[1], 1, &self.u_samplers[1]);
+        super::common_funcs::textures::active_texture(gl, &self.textures[2], 2, &self.u_samplers[2]);
+        gl.draw_elements_with_i32(GL::TRIANGLES, self.index_count, GL::UNSIGNED_SHORT, 0);
+        // }
     }
 
 }
