@@ -32,3 +32,40 @@
 #slider{
     height: 74px;
 }
+
+#infoText{
+    position: absolute;
+    left: 20px;
+    background: rgba(198, 196, 195, 0.15);
+    border-radius: 5%;
+    border-color: #E5E2E2;
+    border-width: 20px;
+    padding: 10px;
+    width: 22%;  
+}
+
+#infoText{
+    color: honeydew;
+    font-family:  sans-serif;
+}
+
+#temperaturLegende{
+    position: absolute;
+    right: 20px;
+    background: rgba(198, 196, 195, 0.15);
+    border-radius: 5%;
+    border-color: #E5E2E2;
+    border-width: 20px;
+    padding: 10px;
+    width: 10%;  
+    color: honeydew;
+    font-family: sans-serif;
+}
+
+#temperaturLegende h1{
+    text-align: center;  
+}
+
+#temperaturLegende p{
+    text-align: right;
+}
