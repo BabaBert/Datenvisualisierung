@@ -116,11 +116,11 @@ impl Globe<3> {
         canvas_width: f32,
         rotation_angle_x_axis: f32,
         rotation_angle_y_axis: f32,
+        timestamp: usize,
         zoom: f32,
     ) {
         use super::common_funcs::textures::*;
-        use js_sys::Date;
-        use super::super::app_state::INTERFACE;
+        
 
         //transformation(rotation) @common_funcs
         let projection_matrix = 
@@ -155,16 +155,8 @@ impl Globe<3> {
         gl.vertex_attrib_pointer_with_i32(a_texture_coord as u32, 2, GL::FLOAT, true, 0, 0);
         gl.enable_vertex_attrib_array(a_texture_coord as u32);
 
-        if INTERFACE.lock().unwrap().pause == false{
-            let now = Date::now();
-            if now > INTERFACE.lock().unwrap().last + (1000. / 12.) {
-                INTERFACE.lock().unwrap().timestamp += 1;
-                INTERFACE.lock().unwrap().last = now;
-            }
-        }   
         
-        
-        let flip_map = super::common_funcs::geomertry_generator::flipbook_texture_map::<12, 142, VERTICES>(INTERFACE.lock().unwrap().timestamp, &self.texture_coord_array);
+        let flip_map = super::common_funcs::geomertry_generator::flipbook_texture_map::<12, 142, VERTICES>(timestamp, &self.texture_coord_array);
         let uv_map: &[f32; 2*VERTICES] = unsafe {std::mem::transmute(flip_map.as_ptr())};
         let a_texture_coord = gl.get_attrib_location(&self.program, "aFlipbookCoord");
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&texture_coord_buffer(gl, uv_map)));

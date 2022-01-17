@@ -123,83 +123,6 @@ mod app_state{
             }
         }
     }
-
-    //grabs only the requiered information form AppState through the Arc-Mutex pattern
-    pub fn update_mouse_down(x: f32, y: f32, is_down: bool) {
-        let mut data = APP_STATE.lock().unwrap();
-        *data = Arc::new(AppState {
-            mouse_down: is_down,
-            mouse_x: x,
-            mouse_y: data.canvas_height - y,
-            ..*data.clone()
-        });
-    }
-
-    pub fn update_mouse_position(x: f32, y: f32) {
-        use std::f32::*;
-        let mut data = APP_STATE.lock().unwrap();
-        let inverted_y = data.canvas_height - y;
-        let x_delta = x - data.mouse_x;
-        let y_delta = inverted_y - data.mouse_y;
-        let rotation_x_delta = if data.mouse_down {
-            consts::PI * y_delta / data.canvas_height
-        } else {
-            0.
-        };
-        let rotation_y_delta = if data.mouse_down {
-            consts::PI * x_delta / data.canvas_width
-        } else {
-            0.
-        };
-
-        *data = Arc::new(AppState {
-            mouse_x: x,
-            mouse_y: inverted_y,
-            rotation_x_axis: f32::max(f32::min(data.rotation_x_axis + rotation_x_delta, 1.5), -1.5),  //globe can only be roated 90° upwards or downwards
-            rotation_y_axis: data.rotation_y_axis - rotation_y_delta,
-            ..*data.clone()
-        });
-    }
-
-    pub fn update_mouse_scroll(mouse_scroll: f64){
-        let mut data = APP_STATE.lock().unwrap();
-        match mouse_scroll {
-            x if x > 0. => {
-                *data = Arc::new(AppState {
-                    mouse_scroll: data.mouse_scroll + 10.,
-                    ..*data.clone()
-                });
-            }
-            y if y < 0. => {
-                *data = Arc::new(AppState {
-                    mouse_scroll: data.mouse_scroll - 10.,
-                    ..*data.clone()
-                });
-            }
-            _ => {*data = Arc::new(AppState{..*data.clone()})}
-        }
-    }
-
-    pub fn update_video_pause(pause: bool){
-        let mut data = APP_STATE.lock().unwrap();
-        *data = Arc::new(AppState{
-            pause: pause,
-            ..*data.clone()
-        })
-    }
-
-    pub fn reset_video(){
-
-    }
-
-    pub fn update_time_stamp(){
-        let mut data = APP_STATE.lock().unwrap();
-        let t = data.timestamp;
-        *data = Arc::new(AppState {
-            timestamp: t + 1,
-            ..*data.clone()
-        });
-    }
 }
 
 mod event_listener{
@@ -297,27 +220,25 @@ mod event_listener{
     }
 
     //Todo:
-    pub fn attach_mouse_scroll_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-        let listener = move |event: web_sys::WheelEvent| {
-            super::app_state::update_mouse_scroll(event.delta_y());
-        };
+    // pub fn attach_mouse_scroll_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
+    //     let listener = move |event: web_sys::WheelEvent| {
+    //         super::app_state::update_mouse_scroll(event.delta_y());
+    //     };
 
-        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-        canvas.add_event_listener_with_callback("mousewheel", listener.as_ref().unchecked_ref())?;
-        listener.forget();
+    //     let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
+    //     canvas.add_event_listener_with_callback("mousewheel", listener.as_ref().unchecked_ref())?;
+    //     listener.forget();
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub fn attach_video_pause_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
         let listener = move || {
             if INTERFACE.lock().unwrap().pause {
-                super::log("play");
                 INTERFACE.lock().unwrap().pause = false; 
             }
             else{
-                super::log("pause");
                 INTERFACE.lock().unwrap().pause = true; 
             }
         };
@@ -329,13 +250,55 @@ mod event_listener{
         Ok(())
     }
 
-    pub fn attach_video_reset_handler(target: &EventTarget) -> Result<(), JsValue> {
-        let listener = move |_event: web_sys::Event| {
-            super::app_state::reset_video();
-        };
+    pub fn attach_video_skip_right_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
+        let listener = Closure::wrap(Box::new(move||{
+            if INTERFACE.lock().unwrap().timestamp > (1703 - 12) {
+                INTERFACE.lock().unwrap().timestamp = 1703;
+            }
+            else{
+                INTERFACE.lock().unwrap().timestamp += 12;
+            }
+        }) as Box<dyn Fn()>);
+    
+        button.set_onclick(Some(listener.as_ref().unchecked_ref()));
+        listener.forget();
+        Ok(())
+    }
+
+    pub fn attach_video_skip_left_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
+
+        let listener = Closure::wrap(Box::new(move||{
+            if INTERFACE.lock().unwrap().timestamp < 12 {
+                INTERFACE.lock().unwrap().timestamp = 0;
+            }
+            else{
+                INTERFACE.lock().unwrap().timestamp -= 12;
+            }
+        }) as Box<dyn Fn()>);
+    
+        button.set_onclick(Some(listener.as_ref().unchecked_ref()));
+        listener.forget();
+        Ok(())
+    }
+
+    pub fn attach_slider_handler(slider: &HtmlInputElement) -> Result<(), JsValue> {
+
+        let s = slider.clone();
+        let listener = move |event: web_sys::MouseEvent| {
+            let x = event.client_x();
+            let offset_left = s.offset_left();
+            super::log(s.offset_left().to_string().as_str());
+            super::log(s.offset_width().to_string().as_str());
+            super::log(s.width().to_string().as_str());
+            let client_width: i32 = 0;
+            let width = s.offset_width();
+            let normalized = (x - offset_left - 15)/ s.offset_width() * 1704;
+            let width = client_width/width;
+            INTERFACE.lock().unwrap().timestamp = (x - offset_left - 10)as usize;
+        };
         let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-        target.add_event_listener_with_callback("pause", listener.as_ref().unchecked_ref())?;
+        slider.add_event_listener_with_callback("mousedown", listener.as_ref().unchecked_ref()).unwrap();
         listener.forget();
         Ok(())
     }
@@ -369,12 +332,18 @@ fn init_events() -> Result<(), JsValue>{
     let canvas = document.get_element_by_id("rustCanvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
     let play_btn = document.get_element_by_id("play_pause_reset").unwrap();
+    let btn_next = document.get_element_by_id("btn_right").unwrap();
+    let btn_prev = document.get_element_by_id("btn_left").unwrap();
+    let slider   = document.get_element_by_id("slider").unwrap();
 
     // Todo: attach_mouse_scroll_handler(&canvas)?;
     event_listener::attach_mouse_down_handler(&canvas)?;
     event_listener::attach_mouse_up_handler(&canvas)?;
     event_listener::attach_mouse_move_handler(&canvas)?;
     event_listener::attach_video_pause_handler(&play_btn.dyn_into().unwrap())?;
+    event_listener::attach_video_skip_right_handler(&btn_next.dyn_into().unwrap())?;
+    event_listener::attach_video_skip_left_handler(&btn_prev.dyn_into().unwrap())?;
+    event_listener::attach_slider_handler(&slider.dyn_into().unwrap())?;
 
     Ok(())
 }
@@ -407,10 +376,23 @@ impl Client{
         Ok(())
     }
 
-    pub fn render(&self){
+    pub fn render(&self, range: &web_sys::HtmlInputElement){
+        use js_sys::Date;
+        use app_state::INTERFACE;
+
         self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT); 
 
         let curr_state = app_state::get_curr_state();
+
+        if INTERFACE.lock().unwrap().pause == false{
+            let now = Date::now();
+            if now > INTERFACE.lock().unwrap().last + (1000. / 12.) {
+                INTERFACE.lock().unwrap().timestamp += 1;
+                INTERFACE.lock().unwrap().last = now;
+            }
+        }
+
+        range.set_value_as_number(INTERFACE.lock().unwrap().timestamp as f64);
 
         self.program_globe.render(
             &self.gl,
@@ -422,6 +404,7 @@ impl Client{
             curr_state.canvas_width,
             curr_state.rotation_x_axis,
             curr_state.rotation_y_axis,
+            INTERFACE.lock().unwrap().timestamp,
             curr_state.mouse_scroll,
             //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
         );

@@ -1,6 +1,8 @@
 const rust = import('./pkg/wasm_boilerplate');
 
 const canvas            = document.getElementById('rustCanvas');
+const info              = document.getElementById('infoText')
+
 const control_bar       = document.getElementById('control_bar');
 const slider            = document.getElementById('slider');
 const play_pause_reset  = document.getElementById('play_pause_reset');
@@ -58,7 +60,7 @@ rust.then(function(m){
                 // control_bar.clientWidth = window.innerWidth;
                 control_bar.style.width = window.innerWidth;
 
-                
+                // info.translate(window.innerWidth/2, window.innerHeight / 2);
 
                 gl.viewport(0, 0, window.innerWidth, window.innerHeight);
             }
@@ -73,10 +75,9 @@ rust.then(function(m){
 
             let elapsedTime = currTime - initialTime;
             Client.update(elapsedTime, window.innerHeight, window.innerWidth);
-            Client.render();
+            Client.render(slider);
         }
     }
 
     render();
-    m.t_loop()
 });
