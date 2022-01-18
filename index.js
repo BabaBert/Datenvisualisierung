@@ -4,29 +4,13 @@ const canvas            = document.getElementById('rustCanvas');
 const info              = document.getElementById('infoText')
 
 const control_bar       = document.getElementById('control_bar');
-const slider            = document.getElementById('slider');
+// const center            = document.getElementById('center');
+const output            = document.getElementById('output');
+const input             = document.getElementById('input');
 const play_pause_reset  = document.getElementById('play_pause_reset');
-// const left              = document.getElementById('left');
-// const right             = document.getElementById('right');
-// const zoom_in           = document.getElementById('zoom_in');
-// const zoom_out          = document.getElementById('zoom_out');
+
 
 const gl = canvas.getContext("webgl", { antialias: true });
-
-// play_pause_reset.addEventListener('click', e => {
-//     console.log(e);
-// });
-
-// //TODO: trigger when the video is being paused or resumed playing
-// //https://developer.mozilla.org/en-US/docs/Web/Events/Creating_and_triggering_events
-// const e_is_playing = CustomEvent('is_playing', {playing: Boolean})
-// //TODO: trigger when the video is reseted to the beginning
-// const e_reset = Event('reset')
-
-// //TODO: <source>.dipatchEvent(is_playing)
-// const time_update = Event('time_update', {"bubbles":true, "cancelable":false})
-
-
 
 rust.then(function(m){
     if (!gl) {
@@ -65,17 +49,23 @@ rust.then(function(m){
                 gl.viewport(0, 0, window.innerWidth, window.innerHeight);
             }
 
-            if (window.innerHeight !== slider.width) {
-                var slider_width = window.innerWidth - 5 * 85 + "px";
+            if (window.innerHeight !== input.width) {
+                var input_width = output_width = window.innerWidth - 5 * 85 + "px";
 
-                slider.width        = slider_width;
-                slider.clientWidth  = slider_width;
-                slider.style.width  = slider_width;
+                input.width        = input_width;
+                input.clientWidth  = input_width;
+                input.style.width  = input_width;
+
+                output.width        = output_width;
+                output.clientWidth  = output_width;
+                output.style.width  = output_width;
+
+
             }
 
             let elapsedTime = currTime - initialTime;
             Client.update(elapsedTime, window.innerHeight, window.innerWidth);
-            Client.render(slider);
+            Client.render(output);
         }
     }
 

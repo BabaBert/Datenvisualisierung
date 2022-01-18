@@ -2,18 +2,49 @@
 .control_bar{
     position: fixed;
     transform: translateZ();
+    height: 74px;
+
 }
 
 #control_bar{
     left: 10px;
     right: 10px;
     bottom: 10px;
-    height: 74px;
 }
 
 :not(#control_bar){
     position: relative;
     height: min-content;
+}
+
+#center{
+    position: relative;
+    float: left;
+    height: 74px;
+}
+
+#input, #output{
+    position: absolute;
+    height: 74px;
+    left: 0;
+}
+
+#input{
+    -webkit-appearance: none;
+    outline: none;
+    /* height: 0px; */
+    /* top: 36px; */
+    color: transparent;
+    background-color: transparent;
+    border: none;
+    outline: none;
+}
+
+#input[type=range]::-moz-range-thumb{
+    height: 0;
+    width: 0;
+    color: transparent;
+    border: transparent;
 }
 
 #right{
@@ -23,14 +54,9 @@
     display: inline;
 }
 
-
 #left{
     float: left;
     width: max-content;
-}
-
-#slider{
-    height: 74px;
 }
 
 #infoText{

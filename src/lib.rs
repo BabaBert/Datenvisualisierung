@@ -282,7 +282,7 @@ mod event_listener{
         Ok(())
     }
 
-    pub fn attach_slider_handler(slider: &HtmlInputElement) -> Result<(), JsValue> {
+    pub fn attach_output_handler(slider: &HtmlInputElement) -> Result<(), JsValue> {
 
         let s = slider.clone();
         let listener = move |event: web_sys::MouseEvent| {
@@ -299,6 +299,16 @@ mod event_listener{
         };
         let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
         slider.add_event_listener_with_callback("mousedown", listener.as_ref().unchecked_ref()).unwrap();
+        listener.forget();
+        Ok(())
+    }
+
+    pub fn attach_input_handler(slider: &HtmlInputElement) -> Result<(), JsValue> {
+        let s = slider.clone();
+        let listener = Closure::wrap(Box::new(move || {
+            INTERFACE.lock().unwrap().timestamp = s.value_as_number() as usize;
+        }) as Box<dyn Fn()>);
+        slider.set_onclick(Some(listener.as_ref().unchecked_ref()));
         listener.forget();
         Ok(())
     }
@@ -334,7 +344,9 @@ fn init_events() -> Result<(), JsValue>{
     let play_btn = document.get_element_by_id("play_pause_reset").unwrap();
     let btn_next = document.get_element_by_id("btn_right").unwrap();
     let btn_prev = document.get_element_by_id("btn_left").unwrap();
-    let slider   = document.get_element_by_id("slider").unwrap();
+    let output   = document.get_element_by_id("output").unwrap();
+    let input    = document.get_element_by_id("input").unwrap();
+
 
     // Todo: attach_mouse_scroll_handler(&canvas)?;
     event_listener::attach_mouse_down_handler(&canvas)?;
@@ -343,7 +355,8 @@ fn init_events() -> Result<(), JsValue>{
     event_listener::attach_video_pause_handler(&play_btn.dyn_into().unwrap())?;
     event_listener::attach_video_skip_right_handler(&btn_next.dyn_into().unwrap())?;
     event_listener::attach_video_skip_left_handler(&btn_prev.dyn_into().unwrap())?;
-    event_listener::attach_slider_handler(&slider.dyn_into().unwrap())?;
+    // event_listener::attach_output_handler(&slider.dyn_into().unwrap())?;
+    event_listener::attach_input_handler(&input.dyn_into().unwrap())?;
 
     Ok(())
 }
