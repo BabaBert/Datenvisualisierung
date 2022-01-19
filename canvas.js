@@ -11,14 +11,14 @@ tempx.fillStyle = grd;
 tempx.fillRect(0,0,100,256);
 
 
-var slider = document.getElementById("slider");
+var slider = document.getElementById("output");
 var output = document.getElementById("year");
 
 output.innerHTML = convertYears(slider.value);
 
-slider.oninput = function(){
-    output.innerHTML = convertYears(this.value);
-}
+// slider.oninput = function(){
+//     output.innerHTML = convertYears(this.value);
+// }
 
 function convertYears(input){
     var months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
@@ -31,6 +31,7 @@ function convertYears(input){
 
     return month + " " + year;
 }
+
 //Schwarz zu Weiß
 /*
 var temp = document.getElementById("temperaturCanvas");

@@ -112,6 +112,7 @@ mod app_state{
         pub pause: bool,
         pub timestamp: usize,
         pub last: f64,
+        pub zoom: f32,
     }
 
     impl Interface{
@@ -119,7 +120,8 @@ mod app_state{
             Self{
                 pause: true,
                 timestamp: 0,
-                last: js_sys::Date::now()
+                last: js_sys::Date::now(),
+                zoom: 1.,
             }
         }
     }
@@ -231,6 +233,27 @@ mod event_listener{
 
     //     Ok(())
     // }
+
+    pub fn attach_zoom_in_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
+
+        let listener = Closure::wrap(Box::new(move ||{
+            INTERFACE.lock().unwrap().zoom *= 1.2;
+            super::log(INTERFACE.lock().unwrap().zoom.to_string().as_str());
+        }) as Box<dyn Fn()>);
+        button.set_onclick(Some(listener.as_ref().unchecked_ref()));
+        listener.forget();
+        Ok(())
+    }
+
+    pub fn attach_zoom_out_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
+        let listener = Closure::wrap(Box::new(move ||{
+            INTERFACE.lock().unwrap().zoom /= 1.2;
+            super::log(INTERFACE.lock().unwrap().zoom.to_string().as_str());
+        }) as Box<dyn Fn()>);
+        button.set_onclick(Some(listener.as_ref().unchecked_ref()));
+        listener.forget();
+        Ok(())
+    }
 
     pub fn attach_video_pause_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
@@ -344,8 +367,10 @@ fn init_events() -> Result<(), JsValue>{
     let play_btn = document.get_element_by_id("play_pause_reset").unwrap();
     let btn_next = document.get_element_by_id("btn_right").unwrap();
     let btn_prev = document.get_element_by_id("btn_left").unwrap();
-    let output   = document.get_element_by_id("output").unwrap();
+    // let output   = document.get_element_by_id("output").unwrap();
     let input    = document.get_element_by_id("input").unwrap();
+    let zoom_in  = document.get_element_by_id("zoom_in").unwrap();
+    let zoom_out = document.get_element_by_id("zoom_out").unwrap();
 
 
     // Todo: attach_mouse_scroll_handler(&canvas)?;
@@ -357,6 +382,8 @@ fn init_events() -> Result<(), JsValue>{
     event_listener::attach_video_skip_left_handler(&btn_prev.dyn_into().unwrap())?;
     // event_listener::attach_output_handler(&slider.dyn_into().unwrap())?;
     event_listener::attach_input_handler(&input.dyn_into().unwrap())?;
+    event_listener::attach_zoom_in_handler(&zoom_in.dyn_into().unwrap())?;
+    event_listener::attach_zoom_out_handler(&zoom_out.dyn_into().unwrap())?;
 
     Ok(())
 }
@@ -407,6 +434,8 @@ impl Client{
 
         range.set_value_as_number(INTERFACE.lock().unwrap().timestamp as f64);
 
+        let int = INTERFACE.lock().unwrap();
+
         self.program_globe.render(
             &self.gl,
             curr_state.control_bottom,
@@ -417,8 +446,10 @@ impl Client{
             curr_state.canvas_width,
             curr_state.rotation_x_axis,
             curr_state.rotation_y_axis,
-            INTERFACE.lock().unwrap().timestamp,
-            curr_state.mouse_scroll,
+            int.timestamp,
+            int.zoom,
+            //INTERFACE.lock().unwrap().zoom,
+            // curr_state.mouse_scroll,
             //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
         );
     }

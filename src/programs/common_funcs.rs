@@ -148,7 +148,7 @@ pub mod matrixes{
         canvas_width: f32,
         rotation_angle_x_axis: f32,
         rotation_angle_y_axis: f32,
-        _zoom: f32,
+        zoom: f32,
     ) -> Matrices3D {
         let mut return_var = Matrices3D {
             normals_rotation: [0.; 16],
@@ -175,7 +175,7 @@ pub mod matrixes{
         let aspect: f32 = canvas_width / canvas_height;
         let scale_x = (right - left ) / canvas_width ;
         let scale_y = (top - bottom ) / canvas_height;
-        let scale = scale_y * 2.;// * 0.5;//+ zoom as f32;
+        let scale = scale_y * zoom;// * 0.5;//+ zoom as f32;
     
         let translation_matrix: [f32; 16] = translation_matrix(
             -1. + scale_x + 2. * left / canvas_width,

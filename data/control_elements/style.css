@@ -97,8 +97,9 @@
 }
 
 #yearDisplayer{
-    position:absolute;
-    right: 3%;
+    position: fixed;
+    top: 450px;
+    right: 1%;
     font-family: sans-serif;
 }
 

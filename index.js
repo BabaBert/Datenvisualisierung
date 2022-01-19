@@ -66,6 +66,8 @@ rust.then(function(m){
             let elapsedTime = currTime - initialTime;
             Client.update(elapsedTime, window.innerHeight, window.innerWidth);
             Client.render(output);
+
+            document.getElementById("year").innerHTML = convertYears(output.value);
         }
     }
 
