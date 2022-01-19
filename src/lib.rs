@@ -32,6 +32,9 @@ mod app_state{
     //severeal readonly references to the app_state
     lazy_static! {
         pub static ref APP_STATE: Mutex<Arc<AppState>> = Mutex::new(Arc::new(AppState::new()));
+
+        //Months sice 1880
+        //Jan 2011: 1572; Dez 2011: 1583; MAX: 1704
         pub static ref INTERFACE: Mutex<Interface<1572, 1583>> = Mutex::new(Interface::new());
     }
 
@@ -168,7 +171,7 @@ mod event_listener{
     use super::app_state::*;
     use std::sync::mpsc::{Sender, Receiver};
 
-
+    #[inline]
     pub fn attach_mouse_down_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
         let listener = move |event: web_sys::WheelEvent| {
             //handler
@@ -190,7 +193,7 @@ mod event_listener{
     
         Ok(())
     }
-    
+    #[inline]
     pub fn attach_mouse_up_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
         let listener = move |event: web_sys::WheelEvent| {
             //handler
@@ -212,7 +215,7 @@ mod event_listener{
     
         Ok(())
     }
-    
+    #[inline]
     pub fn attach_mouse_move_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
         let listener = move |event: web_sys::WheelEvent| {
             // super::app_state::update_mouse_position(event.client_x() as f32, event.client_y() as f32);
@@ -250,7 +253,7 @@ mod event_listener{
     
         Ok(())
     }
-
+    #[inline]
     pub fn attach_zoom_in_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
         let listener = Closure::wrap(Box::new(move ||{
@@ -260,7 +263,7 @@ mod event_listener{
         listener.forget();
         Ok(())
     }
-
+    #[inline]
     pub fn attach_zoom_out_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
         let listener = Closure::wrap(Box::new(move ||{
             INTERFACE.lock().unwrap().zoom /= 1.2;
@@ -272,7 +275,7 @@ mod event_listener{
         listener.forget();
         Ok(())
     }
-
+    #[inline]
     pub fn attach_video_pause_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
         let img = window()
             .unwrap()
@@ -301,7 +304,7 @@ mod event_listener{
         listener.forget();
         Ok(())
     }
-
+    #[inline]
     pub fn attach_video_skip_right_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
         let listener = Closure::wrap(Box::new(move||{
@@ -318,7 +321,7 @@ mod event_listener{
         listener.forget();
         Ok(())
     }
-
+    #[inline]
     pub fn attach_video_skip_left_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
         let listener = Closure::wrap(Box::new(move||{
@@ -335,7 +338,7 @@ mod event_listener{
         listener.forget();
         Ok(())
     }
-
+    #[inline]
     pub fn attach_input_handler(slider: &HtmlInputElement) -> Result<(), JsValue> {
         let s = slider.clone();
         let listener = Closure::wrap(Box::new(move || {
@@ -447,8 +450,7 @@ impl Client{
         }
         if int.pause == false{
             let now = Date::now();
-            if now > int.last + (1000. /  (6. / (int.max() - int.min()) as f64) ) {
-                // int.timestamp += 1;
+            if now > int.last + (1000. / (6. / (int.max() - int.min()) as f64)) {
                 log(int.timestamp.to_string().as_str());
                 int.timestamp = usize::max(int.timestamp % int.max() + 1, int.min());
                 int.last = now;

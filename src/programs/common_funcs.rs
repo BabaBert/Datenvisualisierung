@@ -756,22 +756,4 @@ pub mod geomertry_generator{
         }
     }
 
-    // struct UVSphere<const V: usize, const I: usize>{
-    //     vertices: [f32; (U*V)]
-        
-    //     radius: f32
-        
-    // }
-
-    // impl<const U: usize, const V: usize> Textures for UVSphere<U, V>{
-    //     fn gen_mesh<const VS: usize, const IS: usize>(&self) -> ([f32; VS], [u16; IS]){
-    //         use std::mem;
-
-
-    //         let vertices: &[f32; VS] = unsafe {mem::transmute(self.vertices.as_ptr())};
-    //         let indices: &[u16; IS] = unsafe {mem::transmute(self.indices.as_ptr())};
-    //         (*vertices, *indices)
-    //     }
-    // }
-
 }

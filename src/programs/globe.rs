@@ -13,6 +13,7 @@ const DATA: &str = "../../data/image/data.png";
 const FLIPBOOK: &str = "../../data/image/houdinisheet.jpg";
 const ALPHA: &str = "../../data/image/43dfa829f98aa1da4700f0c65ce0d10e.jpg";
 const SVG: &str = "../../data/image/outline.png";
+const SVG2: &str = "../../data/image/outline2.png";
 
 const SUBDIVIONS: usize = 4;
 const VERTICES: usize = size_v(SUBDIVIONS);
@@ -58,10 +59,9 @@ impl Globe<3> {
         //generate arrays for sphere
         let mesh = globe.gen_mesh::<VERTICES_S, INDICES_S>();
         let raw_uv_map = globe.gen_uv_map::<VERTICES_S>();
-        //let flip_map = flipbook_texture_map::<12, 142, VERTICES>(1690, &raw_uv_map);
 
         //create textures
-        let texture  = create_texture(gl, SVG);
+        let texture  = create_texture(gl, SVG2);
         let texture2 = create_alpha(gl, DATA);
         let gradient: &mut [u8; 4*256] = unsafe{std::mem::transmute(create_gradient(255).as_ptr())};
         let gradient = create_texture_from_u8(gl, gradient);
@@ -81,11 +81,6 @@ impl Globe<3> {
         //Texture Coordinates Buffer
         let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(raw_uv_map.as_ptr())};
         let tex_coord_buffer = texture_coord_buffer(gl, uv_map);
-
-        //Flipbook Coordinates Buffer
-        // let uv_map: &[f32; 2*VERTICES] = unsafe{std::mem::transmute(flip_map.as_ptr())};
-        // let flip_coord_buffer = texture_coord_buffer(gl, uv_map);
-
     
         Self {
             u_projection_matrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
