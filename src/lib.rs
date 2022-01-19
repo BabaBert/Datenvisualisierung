@@ -32,7 +32,7 @@ mod app_state{
     //severeal readonly references to the app_state
     lazy_static! {
         pub static ref APP_STATE: Mutex<Arc<AppState>> = Mutex::new(Arc::new(AppState::new()));
-        pub static ref INTERFACE: Mutex<Interface> = Mutex::new(Interface::new());
+        pub static ref INTERFACE: Mutex<Interface<1572, 1583>> = Mutex::new(Interface::new());
     }
 
     pub fn update_dynamic_data(time: f32, canvas_height: f32, canvas_width: f32) {  //canvas size is stored every time -> can be optimized
@@ -105,21 +105,54 @@ mod app_state{
         }
     }
 
-    pub struct Interface{
+    pub struct Interface<const MIN: usize, const MAX: usize>{
         pub pause: bool,
         pub timestamp: usize,
         pub last: f64,
         pub zoom: f32,
     }
 
-    impl Interface{
+    impl <const MIN: usize, const MAX: usize> Interface<MIN, MAX>{
         fn new() -> Self {
+            use web_sys::*;
+            use wasm_bindgen::JsCast;
+            let input = window()
+                .unwrap()
+                .document()
+                .unwrap()
+                .get_element_by_id("input")
+                .unwrap()
+                .dyn_into::<HtmlInputElement>()
+                .unwrap();
+            input.set_value_as_number(MIN as f64);
+            input.set_min(MIN.to_string().as_str());
+            input.set_max(MAX.to_string().as_str());
+            let output = window()
+                .unwrap()
+                .document()
+                .unwrap()
+                .get_element_by_id("output")
+                .unwrap()
+                .dyn_into::<HtmlInputElement>()
+                .unwrap();
+            output.set_value_as_number(MIN as f64);
+            output.set_min(MIN.to_string().as_str());
+            output.set_max(MAX.to_string().as_str());
             Self{
                 pause: true,
-                timestamp: 0,
+                timestamp: MIN,
                 last: js_sys::Date::now(),
-                zoom: 1.,
+                zoom: 2.,
             }
+        }
+        #[inline]
+        pub const fn min(&self) -> usize{
+            MIN
+        }
+
+        #[inline]
+        pub const fn max(&self) -> usize{
+            MAX
         }
     }
 }
@@ -222,7 +255,6 @@ mod event_listener{
 
         let listener = Closure::wrap(Box::new(move ||{
             INTERFACE.lock().unwrap().zoom *= 1.2;
-            super::log(INTERFACE.lock().unwrap().zoom.to_string().as_str());
         }) as Box<dyn Fn()>);
         button.set_onclick(Some(listener.as_ref().unchecked_ref()));
         listener.forget();
@@ -232,7 +264,9 @@ mod event_listener{
     pub fn attach_zoom_out_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
         let listener = Closure::wrap(Box::new(move ||{
             INTERFACE.lock().unwrap().zoom /= 1.2;
-            super::log(INTERFACE.lock().unwrap().zoom.to_string().as_str());
+            if INTERFACE.lock().unwrap().zoom < 2.{
+                INTERFACE.lock().unwrap().zoom = 2.;
+            }
         }) as Box<dyn Fn()>);
         button.set_onclick(Some(listener.as_ref().unchecked_ref()));
         listener.forget();
@@ -240,13 +274,24 @@ mod event_listener{
     }
 
     pub fn attach_video_pause_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
+        let img = window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .get_element_by_id("play_pause_reset_img")
+            .unwrap()
+            .dyn_into::<HtmlImageElement>()
+            .unwrap();
 
         let listener = move || {
             if INTERFACE.lock().unwrap().pause {
-                INTERFACE.lock().unwrap().pause = false; 
+                INTERFACE.lock().unwrap().pause = false;
+                // INTERFACE.lock().unwrap().timestamp += 1;
+                img.set_src("../data/control_elements/pause.svg");
             }
             else{
-                INTERFACE.lock().unwrap().pause = true; 
+                INTERFACE.lock().unwrap().pause = true;
+                img.set_src("../data/control_elements/play.svg");
             }
         };
 
@@ -260,11 +305,12 @@ mod event_listener{
     pub fn attach_video_skip_right_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
         let listener = Closure::wrap(Box::new(move||{
-            if INTERFACE.lock().unwrap().timestamp > (1703 - 12) {
-                INTERFACE.lock().unwrap().timestamp = 1703;
+            let mut i = INTERFACE.lock().unwrap();
+            if i.timestamp > i.max() - 12 {
+                i.timestamp = i.max();
             }
             else{
-                INTERFACE.lock().unwrap().timestamp += 12;
+                i.timestamp += 12;
             }
         }) as Box<dyn Fn()>);
     
@@ -276,11 +322,12 @@ mod event_listener{
     pub fn attach_video_skip_left_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
         let listener = Closure::wrap(Box::new(move||{
-            if INTERFACE.lock().unwrap().timestamp < 12 {
-                INTERFACE.lock().unwrap().timestamp = 0;
+            let mut i = INTERFACE.lock().unwrap();
+            if i.timestamp < i.min() + 12 {
+                i.timestamp = i.min();
             }
             else{
-                INTERFACE.lock().unwrap().timestamp -= 12;
+                i.timestamp -= 12;
             }
         }) as Box<dyn Fn()>);
     
@@ -303,8 +350,6 @@ mod event_listener{
 
 pub fn init_webgl_context() -> Result<GL, JsValue>{
     use web_sys::*;
-    use std::sync::mpsc::{Sender, Receiver};
-    use std::sync::mpsc;
 
     let window = window().unwrap();
     let document = window.document().unwrap();
@@ -330,8 +375,8 @@ fn init_events() -> Result<(), JsValue>{
     let play_btn = document.get_element_by_id("play_pause_reset").unwrap();
     let btn_next = document.get_element_by_id("btn_right").unwrap();
     let btn_prev = document.get_element_by_id("btn_left").unwrap();
-    // let output   = document.get_element_by_id("output").unwrap();
     let input    = document.get_element_by_id("input").unwrap();
+    let output   = document.get_element_by_id("output").unwrap();
     let zoom_in  = document.get_element_by_id("zoom_in").unwrap();
     let zoom_out = document.get_element_by_id("zoom_out").unwrap();
 
@@ -385,19 +430,33 @@ impl Client{
 
         self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT); 
 
-        let curr_state = app_state::get_curr_state();
+        let mut int = INTERFACE.lock().unwrap();
 
-        if INTERFACE.lock().unwrap().pause == false{
+        let curr_state = app_state::get_curr_state();
+        if int.timestamp == int.max(){
+            int.pause = true;
+            window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .get_element_by_id("play_pause_reset_img")
+            .unwrap()
+            .dyn_into::<HtmlImageElement>()
+            .unwrap()
+            .set_src("../data/control_elements/reset.svg");
+        }
+        if int.pause == false{
             let now = Date::now();
-            if now > INTERFACE.lock().unwrap().last + (1000. / 12.) {
-                INTERFACE.lock().unwrap().timestamp += 1;
-                INTERFACE.lock().unwrap().last = now;
+            if now > int.last + (1000. /  (6. / (int.max() - int.min()) as f64) ) {
+                // int.timestamp += 1;
+                log(int.timestamp.to_string().as_str());
+                int.timestamp = usize::max(int.timestamp % int.max() + 1, int.min());
+                int.last = now;
+                log(int.timestamp.to_string().as_str());
             }
         }
 
-        range.set_value_as_number(INTERFACE.lock().unwrap().timestamp as f64);
-
-        let int = INTERFACE.lock().unwrap();
+        range.set_value_as_number(int.timestamp as f64);
 
         self.program_globe.render(
             &self.gl,
