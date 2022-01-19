@@ -12,12 +12,9 @@ use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc; 
 use std::sync::Mutex;
 
-//use js_sys::Promise;
-
 mod programs;
 mod shaders;
 mod constants;
-//use wasm_bindgen_futures::*;
 
 #[macro_use] extern crate lazy_static;
 
@@ -29,8 +26,8 @@ extern "C"{
 
 mod app_state{
     
-    use std::sync::Arc;     //creates mutable *references* to the data
-    use std::sync::Mutex;   //creates a lock around data so only one owner can access it at a time
+    use std::sync::Arc;  
+    use std::sync::Mutex;
 
     //severeal readonly references to the app_state
     lazy_static! {
@@ -221,19 +218,6 @@ mod event_listener{
         Ok(())
     }
 
-    //Todo:
-    // pub fn attach_mouse_scroll_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-    //     let listener = move |event: web_sys::WheelEvent| {
-    //         super::app_state::update_mouse_scroll(event.delta_y());
-    //     };
-
-    //     let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-    //     canvas.add_event_listener_with_callback("mousewheel", listener.as_ref().unchecked_ref())?;
-    //     listener.forget();
-
-    //     Ok(())
-    // }
-
     pub fn attach_zoom_in_handler(button: &HtmlButtonElement) -> Result<(), JsValue> {
 
         let listener = Closure::wrap(Box::new(move ||{
@@ -301,27 +285,6 @@ mod event_listener{
         }) as Box<dyn Fn()>);
     
         button.set_onclick(Some(listener.as_ref().unchecked_ref()));
-        listener.forget();
-        Ok(())
-    }
-
-    pub fn attach_output_handler(slider: &HtmlInputElement) -> Result<(), JsValue> {
-
-        let s = slider.clone();
-        let listener = move |event: web_sys::MouseEvent| {
-            let x = event.client_x();
-            let offset_left = s.offset_left();
-            super::log(s.offset_left().to_string().as_str());
-            super::log(s.offset_width().to_string().as_str());
-            super::log(s.width().to_string().as_str());
-            let client_width: i32 = 0;
-            let width = s.offset_width();
-            let normalized = (x - offset_left - 15)/ s.offset_width() * 1704;
-            let width = client_width/width;
-            INTERFACE.lock().unwrap().timestamp = (x - offset_left - 10)as usize;
-        };
-        let listener = Closure::wrap(Box::new(listener) as Box<dyn FnMut(_)>);
-        slider.add_event_listener_with_callback("mousedown", listener.as_ref().unchecked_ref()).unwrap();
         listener.forget();
         Ok(())
     }
@@ -448,9 +411,6 @@ impl Client{
             curr_state.rotation_y_axis,
             int.timestamp,
             int.zoom,
-            //INTERFACE.lock().unwrap().zoom,
-            // curr_state.mouse_scroll,
-            //&common_funcs::matrixes::get_updated_3d_y_values(curr_state.time),
         );
     }
 }
