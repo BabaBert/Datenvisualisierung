@@ -127,8 +127,8 @@ impl Globe<3> {
             right,
             canvas_height,
             canvas_width,
-            rotation_angle_x_axis,
-            rotation_angle_y_axis,
+            rotation_angle_x_axis,// / zoom * 2.,
+            rotation_angle_y_axis,// / zoom * 2.,
             zoom,
         );
 

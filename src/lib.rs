@@ -236,11 +236,11 @@ mod event_listener{
             } else {
                 0.
             };
-
+            // let zoom = INTERFACE.lock().unwrap().zoom / 2.;
             *data = Arc::new(AppState {
                 mouse_x: x,
                 mouse_y: inverted_y,
-                rotation_x_axis: f32::max(f32::min(data.rotation_x_axis + rotation_x_delta, 1.5), -1.5),  //globe can only be roated 90° upwards or downwards
+                rotation_x_axis: f32::max(f32::min(data.rotation_x_axis + rotation_x_delta, 1.5 /* *zoom*/ ), -1.5 ),//* zoom) ,  //globe can only be roated 90° upwards or downwards
                 rotation_y_axis: data.rotation_y_axis - rotation_y_delta,
                 ..*data.clone()
             });
@@ -271,6 +271,24 @@ mod event_listener{
         }) as Box<dyn Fn()>);
         button.set_onclick(Some(listener.as_ref().unchecked_ref()));
         listener.forget();
+        Ok(())
+    }
+    #[inline]
+    pub fn attach_mouse_zoom_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
+
+        let listener = Closure::wrap(Box::new(move |event: web_sys::WheelEvent|{
+            let mut int = INTERFACE.lock().unwrap(); 
+            if event.delta_y() < 0.{
+                int.zoom *= 1.2;
+            }
+            else if event.delta_y() > 0.{
+                int.zoom /= 1.2;
+                if int.zoom < 2. {int.zoom = 2.}
+            }
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("wheel", listener.as_ref().unchecked_ref())?;
+        listener.forget();
+
         Ok(())
     }
     #[inline]
@@ -387,6 +405,7 @@ fn init_events() -> Result<(), JsValue>{
     event_listener::attach_mouse_down_handler(&canvas)?;
     event_listener::attach_mouse_up_handler(&canvas)?;
     event_listener::attach_mouse_move_handler(&canvas)?;
+    event_listener::attach_mouse_zoom_handler(&canvas)?;
     event_listener::attach_video_pause_handler(&play_btn.dyn_into().unwrap())?;
     event_listener::attach_video_skip_right_handler(&btn_next.dyn_into().unwrap())?;
     event_listener::attach_video_skip_left_handler(&btn_prev.dyn_into().unwrap())?;
