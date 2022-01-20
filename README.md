@@ -4,7 +4,7 @@ This project is based on the repository from Dough Milford
 https://github.com/dmilford/rust-3d-demo.git
 
 ## Requirements
-1. [rustup](www.rustup.rs)
+1. [rustup](https://rustup.rs)
 2. [Node and npm](www.npmjs.com/get-npm) then `npm install`
 3. [wasm](github.com/wasm-tool/wasm-pack-plugin) or `cargo install wasm-pack`
 

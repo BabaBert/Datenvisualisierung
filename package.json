@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "build": "webpack --mode production",
+        "build": "webpack --target web",
         "dev": "webpack-dev-server --port 9000 --open"
     },
     "devDependencies": {

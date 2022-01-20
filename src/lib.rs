@@ -469,10 +469,10 @@ impl Client{
         if int.pause == false{
             let now = Date::now();
             if now > int.last + (1000. / (6. / (int.max() - int.min()) as f64)) {
-                log(int.timestamp.to_string().as_str());
+                // log(int.timestamp.to_string().as_str());
                 int.timestamp = usize::max(int.timestamp % int.max() + 1, int.min());
                 int.last = now;
-                log(int.timestamp.to_string().as_str());
+                // log(int.timestamp.to_string().as_str());
             }
         }
 
