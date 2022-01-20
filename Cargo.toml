@@ -35,6 +35,7 @@ features = [
     'CustomEventInit',
     'EventInit',
     'MouseEvent',
+    'PointerEvent',
     'WheelEvent',
     'WebGlBuffer',
     'WebGlProgram',

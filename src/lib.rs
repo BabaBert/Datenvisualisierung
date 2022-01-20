@@ -28,14 +28,12 @@ mod app_state{
     
     use std::sync::Arc;  
     use std::sync::Mutex;
+    use super::constants::{MIN, MAX};
 
     //severeal readonly references to the app_state
     lazy_static! {
         pub static ref APP_STATE: Mutex<Arc<AppState>> = Mutex::new(Arc::new(AppState::new()));
-
-        //Months sice 1880
-        //Jan 2011: 1572; Dez 2011: 1583; MAX: 1704
-        pub static ref INTERFACE: Mutex<Interface<1572, 1583>> = Mutex::new(Interface::new());
+        pub static ref INTERFACE: Mutex<Interface::<1572, 1583>> = Mutex::new(Interface::new());
     }
 
     pub fn update_dynamic_data(time: f32, canvas_height: f32, canvas_width: f32) {  //canvas size is stored every time -> can be optimized
@@ -173,7 +171,7 @@ mod event_listener{
 
     #[inline]
     pub fn attach_mouse_down_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-        let listener = move |event: web_sys::WheelEvent| {
+        let listener = move |event: web_sys::PointerEvent| {
             //handler
             // super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, true);
             let x = event.client_x() as f32;
@@ -195,7 +193,7 @@ mod event_listener{
     }
     #[inline]
     pub fn attach_mouse_up_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-        let listener = move |event: web_sys::WheelEvent| {
+        let listener = move |event: web_sys::PointerEvent| {
             //handler
             // super::app_state::update_mouse_down(event.client_x() as f32, event.client_y() as f32, false);
             let x = event.client_x() as f32;
@@ -217,7 +215,7 @@ mod event_listener{
     }
     #[inline]
     pub fn attach_mouse_move_handler(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-        let listener = move |event: web_sys::WheelEvent| {
+        let listener = move |event: web_sys::PointerEvent| {
             // super::app_state::update_mouse_position(event.client_x() as f32, event.client_y() as f32);
             use std::f32::*;
             let x = event.client_x() as f32;
@@ -289,7 +287,8 @@ mod event_listener{
         let listener = move || {
             if INTERFACE.lock().unwrap().pause {
                 INTERFACE.lock().unwrap().pause = false;
-                // INTERFACE.lock().unwrap().timestamp += 1;
+                INTERFACE.lock().unwrap().timestamp += 1;
+                INTERFACE.lock().unwrap().last = js_sys::Date::now();
                 img.set_src("../data/control_elements/pause.svg");
             }
             else{
